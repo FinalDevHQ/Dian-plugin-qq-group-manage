@@ -21,7 +21,44 @@ export function getBlacklistCommands(permService: PermissionService) {
     aliases: ["list"],
     description: "黑白名单管理",
     order: 28,
+    handler: async (c: EventContext) => {
+      await c.reply(
+        `📋 黑白名单\n` +
+        `────────────────\n` +
+        `群管 名单 拉黑 @QQ / 拉黑 - 拉黑并踢出\n` +
+        `群管 名单 删黑 @QQ / 删黑 - 移除黑名单\n` +
+        `群管 名单 查黑 @QQ / 查黑 - 查询黑名单\n` +
+        `群管 名单 黑名单 / 黑名单 - 黑名单列表\n` +
+        `群管 名单 拉白 @QQ / 拉白 - 拉白\n` +
+        `群管 名单 删白 @QQ / 删白 - 移除白名单\n` +
+        `群管 名单 查白 @QQ / 查白 - 查询白名单\n` +
+        `群管 名单 白名单 / 白名单 - 白名单列表\n` +
+        `群管 名单 退群拉黑 开启/关闭 - 退群自动拉黑`
+      );
+    },
     children: [
+      {
+        name: "帮助",
+        aliases: ["help"],
+        pattern: /^群管\s+名单\s*(帮助|help)$/,
+        description: "查看名单帮助",
+        order: 0,
+        handler: async (c: EventContext) => {
+          await c.reply(
+            `📋 黑白名单\n` +
+            `────────────────\n` +
+            `群管 名单 拉黑 @QQ / 拉黑 - 拉黑并踢出\n` +
+            `群管 名单 删黑 @QQ / 删黑 - 移除黑名单\n` +
+            `群管 名单 查黑 @QQ / 查黑 - 查询黑名单\n` +
+            `群管 名单 黑名单 / 黑名单 - 黑名单列表\n` +
+            `群管 名单 拉白 @QQ / 拉白 - 拉白\n` +
+            `群管 名单 删白 @QQ / 删白 - 移除白名单\n` +
+            `群管 名单 查白 @QQ / 查白 - 查询白名单\n` +
+            `群管 名单 白名单 / 白名单 - 白名单列表\n` +
+            `群管 名单 退群拉黑 开启/关闭 - 退群自动拉黑`
+          );
+        },
+      },
       {
         name: "拉黑",
         aliases: ["blacklist"],

@@ -9,7 +9,38 @@ export function getSystemCommands(permService: PermissionService) {
     aliases: ["sys"],
     description: "系统设置",
     order: 30,
+    handler: async (c: EventContext) => {
+      await c.reply(
+        `⚙️ 系统设置\n` +
+        `────────────────\n` +
+        `群管 系统 开机 / 开机 - 启用机器人\n` +
+        `群管 系统 关机 / 关机 - 停用机器人\n` +
+        `群管 系统 闭嘴 / 闭嘴 - 停止发言\n` +
+        `群管 系统 说话 / 说话 - 恢复发言\n` +
+        `群管 系统 专属模式 开启/关闭 - 专属模式\n` +
+        `群管 系统 状态 / 查群状态 - 查看状态`
+      );
+    },
     children: [
+      {
+        name: "帮助",
+        aliases: ["help"],
+        pattern: /^群管\s+系统\s*(帮助|help)$/,
+        description: "查看系统帮助",
+        order: 0,
+        handler: async (c: EventContext) => {
+          await c.reply(
+            `⚙️ 系统设置\n` +
+            `────────────────\n` +
+            `群管 系统 开机 / 开机 - 启用机器人\n` +
+            `群管 系统 关机 / 关机 - 停用机器人\n` +
+            `群管 系统 闭嘴 / 闭嘴 - 停止发言\n` +
+            `群管 系统 说话 / 说话 - 恢复发言\n` +
+            `群管 系统 专属模式 开启/关闭 - 专属模式\n` +
+            `群管 系统 状态 / 查群状态 - 查看状态`
+          );
+        },
+      },
       {
         name: "开机",
         aliases: ["启用", "enable"],
@@ -119,15 +150,13 @@ export function getSystemCommands(permService: PermissionService) {
           const levelName = await permService.getPermissionName(userLevel);
           const status = `📊 群状态 (群号: ${groupId})\n` +
             `────────────────\n` +
-            `机器人状态: ${settings.enabled ? '✅ 已启用' : '❌ 已停用'}\n` +
-            `发言状态: ${settings.muted ? '🔇 已闭嘴' : '🔊 正常发言'}\n` +
-            `专属模式: ${settings.exclusiveMode ? '🔒 已开启' : '🔓 已关闭'}\n` +
-            `退群拉黑: ${settings.autoBlacklistOnLeave ? '✅ 已开启' : '❌ 已关闭'}\n` +
+            `机器人: ${settings.enabled ? '✅ 已启用' : '❌ 已停用'}\n` +
+            `发言: ${settings.muted ? '🔇 已闭嘴' : '🔊 正常'}\n` +
+            `专属: ${settings.exclusiveMode ? '🔒 开启' : '🔓 关闭'}\n` +
+            `退群拉黑: ${settings.autoBlacklistOnLeave ? '✅ 开启' : '❌ 关闭'}\n` +
             `────────────────\n` +
             `你的身份: ${levelName}\n` +
-            `主人数量: ${owners.length}\n` +
-            `小主人数量: ${admins.length}\n` +
-            `本群超管: ${superAdmins.length}人`;
+            `主人: ${owners.length} | 小主人: ${admins.length} | 超管: ${superAdmins.length}`;
           await c.reply(status);
         },
       },

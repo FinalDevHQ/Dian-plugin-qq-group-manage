@@ -33,7 +33,40 @@ export function getPermissionCommands(permService: PermissionService) {
     aliases: ["perm"],
     description: "权限管理",
     order: 10,
+    handler: async (c: EventContext) => {
+      await c.reply(
+        `🔐 权限管理\n` +
+        `────────────────\n` +
+        `群管 权限 身份 / 我的身份 - 查看权限\n` +
+        `群管 权限 小主人 添加 @QQ / 加小主人 - 添加\n` +
+        `群管 权限 小主人 删除 @QQ / 删小主人 - 删除\n` +
+        `群管 权限 小主人 列表 / 查小主人 - 列表\n` +
+        `群管 权限 超管 添加 @QQ / 加超管 - 添加\n` +
+        `群管 权限 超管 删除 @QQ / 删超管 - 删除\n` +
+        `群管 权限 超管 列表 / 查超管 - 列表`
+      );
+    },
     children: [
+      {
+        name: "帮助",
+        aliases: ["help"],
+        pattern: /^群管\s+权限\s*(帮助|help)$/,
+        description: "查看权限管理帮助",
+        order: 0,
+        handler: async (c: EventContext) => {
+          await c.reply(
+            `🔐 权限管理\n` +
+            `────────────────\n` +
+            `群管 权限 身份 / 我的身份 - 查看权限\n` +
+            `群管 权限 小主人 添加 @QQ / 加小主人 - 添加\n` +
+            `群管 权限 小主人 删除 @QQ / 删小主人 - 删除\n` +
+            `群管 权限 小主人 列表 / 查小主人 - 列表\n` +
+            `群管 权限 超管 添加 @QQ / 加超管 - 添加\n` +
+            `群管 权限 超管 删除 @QQ / 删超管 - 删除\n` +
+            `群管 权限 超管 列表 / 查超管 - 列表`
+          );
+        },
+      },
       {
         name: "身份",
         aliases: ["我的身份"],

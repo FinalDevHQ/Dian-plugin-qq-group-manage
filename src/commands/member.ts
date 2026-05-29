@@ -9,7 +9,38 @@ export function getMemberCommands(permService: PermissionService) {
     aliases: ["member"],
     description: "成员管理",
     order: 25,
+    handler: async (c: EventContext) => {
+      await c.reply(
+        `👥 成员管理\n` +
+        `────────────────\n` +
+        `群管 成员 踢 @QQ / 踢 @QQ - 踢出\n` +
+        `群管 成员 踢黑 @QQ / 踢黑 @QQ - 踢出并拉黑\n` +
+        `群管 成员 禁言 @QQ [分钟] / 禁言 - 禁言\n` +
+        `群管 成员 解禁 @QQ / 解禁 @QQ - 解禁\n` +
+        `群管 成员 全体禁言 / 全体禁言 - 全体禁言\n` +
+        `群管 成员 全体解禁 / 全体解禁 - 全体解禁`
+      );
+    },
     children: [
+      {
+        name: "帮助",
+        aliases: ["help"],
+        pattern: /^群管\s+成员\s*(帮助|help)$/,
+        description: "查看成员管理帮助",
+        order: 0,
+        handler: async (c: EventContext) => {
+          await c.reply(
+            `👥 成员管理\n` +
+            `────────────────\n` +
+            `群管 成员 踢 @QQ / 踢 @QQ - 踢出\n` +
+            `群管 成员 踢黑 @QQ / 踢黑 @QQ - 踢出并拉黑\n` +
+            `群管 成员 禁言 @QQ [分钟] / 禁言 - 禁言\n` +
+            `群管 成员 解禁 @QQ / 解禁 @QQ - 解禁\n` +
+            `群管 成员 全体禁言 / 全体禁言 - 全体禁言\n` +
+            `群管 成员 全体解禁 / 全体解禁 - 全体解禁`
+          );
+        },
+      },
       {
         name: "踢",
         aliases: ["踢人"],

@@ -9,7 +9,32 @@ export function getModeratorCommands(permService: PermissionService) {
     aliases: ["mod"],
     description: "QQ群管理员操作",
     order: 20,
+    handler: async (c: EventContext) => {
+      await c.reply(
+        `👑 管理员操作\n` +
+        `────────────────\n` +
+        `群管 管理员 设置 @QQ / 设管 @QQ - 设置\n` +
+        `群管 管理员 取消 @QQ / 取管 @QQ - 取消\n` +
+        `群管 管理员 同步 / 同步管理权限 - 同步`
+      );
+    },
     children: [
+      {
+        name: "帮助",
+        aliases: ["help"],
+        pattern: /^群管\s+管理员\s*(帮助|help)$/,
+        description: "查看管理员帮助",
+        order: 0,
+        handler: async (c: EventContext) => {
+          await c.reply(
+            `👑 管理员操作\n` +
+            `────────────────\n` +
+            `群管 管理员 设置 @QQ / 设管 @QQ - 设置\n` +
+            `群管 管理员 取消 @QQ / 取管 @QQ - 取消\n` +
+            `群管 管理员 同步 / 同步管理权限 - 同步`
+          );
+        },
+      },
       {
         name: "设置",
         aliases: ["设管"],
