@@ -3,6 +3,7 @@ import type { PermissionService } from "../services/permission.js";
 import { registerPermissionCommands } from "./permission.js";
 import { registerModeratorCommands } from "./moderator.js";
 import { registerSystemCommands } from "./system.js";
+import { registerMemberCommands } from "./member.js";
 import type { EventContext } from "@myfinal/plugin-runtime";
 
 export { extractMentionedQQ, requirePermission } from "./permission.js";
@@ -34,6 +35,7 @@ export function registerAllCommands(ctx: PluginSetupContext, permService: Permis
 
   registerPermissionCommands(ctx, permService);
   registerModeratorCommands(ctx, permService);
+  registerMemberCommands(ctx, permService);
   registerSystemCommands(ctx, permService);
 }
 
@@ -53,6 +55,13 @@ async function showHelp(c: EventContext): Promise<void> {
     `群管 管理员 设置 @QQ / 设管 @QQ - 设置群管理员\n` +
     `群管 管理员 取消 @QQ / 取管 @QQ - 取消群管理员\n` +
     `群管 管理员 同步 / 同步管理权限 - 同步群管理员到数据库\n\n` +
+    `【成员管理】\n` +
+    `群管 成员 踢 @QQ / 踢 @QQ - 踢出成员\n` +
+    `群管 成员 踢黑 @QQ / 踢黑 @QQ - 踢出并拉黑\n` +
+    `群管 成员 禁言 @QQ [分钟] / 禁言 @QQ [分钟] - 禁言成员\n` +
+    `群管 成员 解禁 @QQ / 解禁 @QQ - 解除禁言\n` +
+    `群管 成员 全体禁言 / 全体禁言 - 开启全体禁言\n` +
+    `群管 成员 全体解禁 / 全体解禁 - 关闭全体禁言\n\n` +
     `【系统设置】\n` +
     `群管 系统 开机 / 开机 - 启用机器人\n` +
     `群管 系统 关机 / 关机 - 停用机器人\n` +
