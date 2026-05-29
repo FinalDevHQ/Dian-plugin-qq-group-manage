@@ -26,6 +26,12 @@ export function registerMemberCommands(ctx: PluginSetupContext, permService: Per
             return;
           }
 
+          const isWhitelisted = await permService.isWhitelisted(ctx.groupId, targetQQ);
+          if (isWhitelisted) {
+            await c.reply(`${targetQQ} 在白名单中，无法踢出`);
+            return;
+          }
+
           const kickResult = await c.sendAction("set_group_kick", {
             group_id: Number(ctx.groupId),
             user_id: Number(targetQQ),
@@ -55,6 +61,12 @@ export function registerMemberCommands(ctx: PluginSetupContext, permService: Per
             return;
           }
 
+          const isWhitelisted = await permService.isWhitelisted(ctx.groupId, targetQQ);
+          if (isWhitelisted) {
+            await c.reply(`${targetQQ} 在白名单中，无法踢出`);
+            return;
+          }
+
           const kickResult = await c.sendAction("set_group_kick", {
             group_id: Number(ctx.groupId),
             user_id: Number(targetQQ),
@@ -81,6 +93,12 @@ export function registerMemberCommands(ctx: PluginSetupContext, permService: Per
           const targetQQ = extractMentionedQQ(text);
           if (!targetQQ) {
             await c.reply("请@要禁言的用户");
+            return;
+          }
+
+          const isWhitelisted = await permService.isWhitelisted(ctx.groupId, targetQQ);
+          if (isWhitelisted) {
+            await c.reply(`${targetQQ} 在白名单中，无法禁言`);
             return;
           }
 

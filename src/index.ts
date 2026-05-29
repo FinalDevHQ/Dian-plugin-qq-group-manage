@@ -43,11 +43,39 @@ export default class QQGroupManagePlugin {
       pluginState.sendAction = ctx.sendAction;
     }
 
+    // Handle group leave/kick events for auto blacklist
+    if (ctx.event.type === "notice") {
+      const subtype = ctx.event.subtype;
+      const groupId = ctx.event.payload.groupId;
+      const userId = ctx.event.payload.userId;
+
+      if (groupId && userId && (subtype === "group_decrease" || subtype === "leave" || subtype === "kick")) {
+        const shouldAutoBlacklist = await permService.isAutoBlacklistOnLeave(groupId);
+        if (shouldAutoBlacklist) {
+          const isAlreadyBlacklisted = await permService.isBlacklisted(groupId, userId);
+          if (!isAlreadyBlacklisted) {
+            await permService.addToBlacklist(groupId, userId, "退群自动拉黑");
+            console.log(`[qq-group-manage] Auto blacklisted ${userId} in group ${groupId}`);
+          }
+        }
+      }
+    }
+
     if (ctx.event.type === "message") {
       const groupId = ctx.event.payload.groupId;
       const text = ctx.event.payload.text || "";
+      const userId = ctx.event.payload.userId;
 
       if (!groupId) return;
+
+      // Check if user is blacklisted
+      if (userId) {
+        const isBlacklisted = await permService.isBlacklisted(groupId, userId);
+        if (isBlacklisted) {
+          ctx.stopPropagation();
+          return;
+        }
+      }
 
       const isSystemCommand = /^(开机|关机|闭嘴|说话|查群状态|群管\s+系统|开启专属模式|关闭专属模式)/.test(text);
 

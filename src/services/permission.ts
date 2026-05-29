@@ -14,6 +14,8 @@ const TABLES = {
   SUPER_ADMINS: "qgm_super_admins",
   GROUP_MODERATORS: "qgm_group_moderators",
   GROUP_SETTINGS: "qgm_group_settings",
+  BLACKLIST: "qgm_blacklist",
+  WHITELIST: "qgm_whitelist",
 };
 
 export interface GroupSettings {
@@ -21,12 +23,28 @@ export interface GroupSettings {
   enabled: boolean;
   muted: boolean;
   exclusiveMode: boolean;
+  autoBlacklistOnLeave: boolean;
+}
+
+export interface BlacklistEntry {
+  groupId: string;
+  qqId: string;
+  reason: string;
+  createdAt: number;
+}
+
+export interface WhitelistEntry {
+  groupId: string;
+  qqId: string;
+  reason: string;
+  createdAt: number;
 }
 
 const DEFAULT_SETTINGS: Omit<GroupSettings, "groupId"> = {
   enabled: true,
   muted: false,
   exclusiveMode: false,
+  autoBlacklistOnLeave: false,
 };
 
 export class PermissionService {
@@ -46,6 +64,17 @@ export class PermissionService {
       "enabled INTEGER NOT NULL DEFAULT 1",
       "muted INTEGER NOT NULL DEFAULT 0",
       "exclusive_mode INTEGER NOT NULL DEFAULT 0",
+      "auto_blacklist_on_leave INTEGER NOT NULL DEFAULT 0",
+    ]);
+    await this.db.createTable(TABLES.BLACKLIST, [
+      "group_id TEXT NOT NULL",
+      "qq_id TEXT NOT NULL",
+      "reason TEXT DEFAULT ''",
+    ]);
+    await this.db.createTable(TABLES.WHITELIST, [
+      "group_id TEXT NOT NULL",
+      "qq_id TEXT NOT NULL",
+      "reason TEXT DEFAULT ''",
     ]);
 
     this.initialized = true;
@@ -114,7 +143,7 @@ export class PermissionService {
 
   async getAdmins(): Promise<Array<{ qqId: string; nickname: string }>> {
     const rows = await this.getDb().query(TABLES.ADMINS);
-    return rows.map((r) => ({ qqId: r.qq_id as string, nickname: r.nickname as string }));
+    return rows.map((r) => ({ qq_id: r.qq_id as string, nickname: r.nickname as string }));
   }
 
   async addSuperAdmin(groupId: string, qqId: string): Promise<void> {
@@ -164,6 +193,7 @@ export class PermissionService {
       enabled: Boolean(row.enabled),
       muted: Boolean(row.muted),
       exclusiveMode: Boolean(row.exclusive_mode),
+      autoBlacklistOnLeave: Boolean(row.auto_blacklist_on_leave),
     };
   }
 
@@ -177,22 +207,17 @@ export class PermissionService {
         enabled: settings.enabled !== undefined ? (settings.enabled ? 1 : 0) : DEFAULT_SETTINGS.enabled ? 1 : 0,
         muted: settings.muted !== undefined ? (settings.muted ? 1 : 0) : DEFAULT_SETTINGS.muted ? 1 : 0,
         exclusive_mode: settings.exclusiveMode !== undefined ? (settings.exclusiveMode ? 1 : 0) : DEFAULT_SETTINGS.exclusiveMode ? 1 : 0,
+        auto_blacklist_on_leave: settings.autoBlacklistOnLeave !== undefined ? (settings.autoBlacklistOnLeave ? 1 : 0) : DEFAULT_SETTINGS.autoBlacklistOnLeave ? 1 : 0,
       });
     } else {
-      const updateData: Record<string, unknown> = {};
-      if (settings.enabled !== undefined) updateData.enabled = settings.enabled ? 1 : 0;
-      if (settings.muted !== undefined) updateData.muted = settings.muted ? 1 : 0;
-      if (settings.exclusiveMode !== undefined) updateData.exclusive_mode = settings.exclusiveMode ? 1 : 0;
-
-      if (Object.keys(updateData).length > 0) {
-        await db.delete(TABLES.GROUP_SETTINGS, { group_id: groupId });
-        await db.insert(TABLES.GROUP_SETTINGS, {
-          group_id: groupId,
-          enabled: (settings.enabled !== undefined ? settings.enabled : existing[0].enabled) ? 1 : 0,
-          muted: (settings.muted !== undefined ? settings.muted : existing[0].muted) ? 1 : 0,
-          exclusive_mode: (settings.exclusiveMode !== undefined ? settings.exclusiveMode : existing[0].exclusive_mode) ? 1 : 0,
-        });
-      }
+      await db.delete(TABLES.GROUP_SETTINGS, { group_id: groupId });
+      await db.insert(TABLES.GROUP_SETTINGS, {
+        group_id: groupId,
+        enabled: (settings.enabled !== undefined ? settings.enabled : existing[0].enabled) ? 1 : 0,
+        muted: (settings.muted !== undefined ? settings.muted : existing[0].muted) ? 1 : 0,
+        exclusive_mode: (settings.exclusiveMode !== undefined ? settings.exclusiveMode : existing[0].exclusive_mode) ? 1 : 0,
+        auto_blacklist_on_leave: (settings.autoBlacklistOnLeave !== undefined ? settings.autoBlacklistOnLeave : existing[0].auto_blacklist_on_leave) ? 1 : 0,
+      });
     }
   }
 
@@ -209,6 +234,59 @@ export class PermissionService {
   async isExclusiveMode(groupId: string): Promise<boolean> {
     const settings = await this.getGroupSettings(groupId);
     return settings.exclusiveMode;
+  }
+
+  async isAutoBlacklistOnLeave(groupId: string): Promise<boolean> {
+    const settings = await this.getGroupSettings(groupId);
+    return settings.autoBlacklistOnLeave;
+  }
+
+  // Blacklist operations
+  async addToBlacklist(groupId: string, qqId: string, reason?: string): Promise<void> {
+    await this.getDb().insert(TABLES.BLACKLIST, { group_id: groupId, qq_id: qqId, reason: reason || "" });
+  }
+
+  async removeFromBlacklist(groupId: string, qqId: string): Promise<number> {
+    return await this.getDb().delete(TABLES.BLACKLIST, { group_id: groupId, qq_id: qqId });
+  }
+
+  async isBlacklisted(groupId: string, qqId: string): Promise<boolean> {
+    const rows = await this.getDb().query(TABLES.BLACKLIST, { group_id: groupId, qq_id: qqId });
+    return rows.length > 0;
+  }
+
+  async getBlacklist(groupId: string): Promise<BlacklistEntry[]> {
+    const rows = await this.getDb().query(TABLES.BLACKLIST, { group_id: groupId });
+    return rows.map((r) => ({
+      groupId: r.group_id as string,
+      qqId: r.qq_id as string,
+      reason: r.reason as string,
+      createdAt: 0,
+    }));
+  }
+
+  // Whitelist operations
+  async addToWhitelist(groupId: string, qqId: string, reason?: string): Promise<void> {
+    await this.getDb().insert(TABLES.WHITELIST, { group_id: groupId, qq_id: qqId, reason: reason || "" });
+  }
+
+  async removeFromWhitelist(groupId: string, qqId: string): Promise<number> {
+    return await this.getDb().delete(TABLES.WHITELIST, { group_id: groupId, qq_id: qqId });
+  }
+
+  async isWhitelisted(groupId: string, qqId: string): Promise<boolean> {
+    const rows = await this.getDb().query(TABLES.WHITELIST, { group_id: groupId, qq_id: qqId });
+    return rows.length > 0;
+  }
+
+  async getWhitelist(groupId: string): Promise<WhitelistEntry[]> {
+    const rows = await this.getDb().query(TABLES.WHITELIST, { group_id: groupId });
+    return rows.map((r) => ({
+      groupId: r.group_id as string,
+      qqId: r.qq_id as string,
+      reason: r.reason as string,
+      createdAt: 0,
+    }));
   }
 }
 

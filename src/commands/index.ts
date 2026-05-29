@@ -4,6 +4,7 @@ import { registerPermissionCommands } from "./permission.js";
 import { registerModeratorCommands } from "./moderator.js";
 import { registerSystemCommands } from "./system.js";
 import { registerMemberCommands } from "./member.js";
+import { registerBlacklistCommands } from "./blacklist.js";
 import type { EventContext } from "@myfinal/plugin-runtime";
 
 export { extractMentionedQQ, requirePermission } from "./permission.js";
@@ -36,6 +37,7 @@ export function registerAllCommands(ctx: PluginSetupContext, permService: Permis
   registerPermissionCommands(ctx, permService);
   registerModeratorCommands(ctx, permService);
   registerMemberCommands(ctx, permService);
+  registerBlacklistCommands(ctx, permService);
   registerSystemCommands(ctx, permService);
 }
 
@@ -62,6 +64,17 @@ async function showHelp(c: EventContext): Promise<void> {
     `群管 成员 解禁 @QQ / 解禁 @QQ - 解除禁言\n` +
     `群管 成员 全体禁言 / 全体禁言 - 开启全体禁言\n` +
     `群管 成员 全体解禁 / 全体解禁 - 关闭全体禁言\n\n` +
+    `【黑白名单】\n` +
+    `群管 名单 拉黑 @QQ [理由] / 拉黑 @QQ - 拉黑并踢出\n` +
+    `群管 名单 删黑 @QQ / 删黑 @QQ - 从黑名单移除\n` +
+    `群管 名单 查黑 @QQ / 查黑 @QQ - 查询黑名单\n` +
+    `群管 名单 黑名单 / 黑名单 - 查看黑名单列表\n` +
+    `群管 名单 拉白 @QQ [理由] / 拉白 @QQ - 拉白（免疫广告杀手）\n` +
+    `群管 名单 删白 @QQ / 删白 @QQ - 从白名单移除\n` +
+    `群管 名单 查白 @QQ / 查白 @QQ - 查询白名单\n` +
+    `群管 名单 白名单 / 白名单 - 查看白名单列表\n` +
+    `群管 名单 退群拉黑 开启 / 开启退群拉黑 - 退群自动拉黑\n` +
+    `群管 名单 退群拉黑 关闭 / 关闭退群拉黑 - 关闭退群自动拉黑\n\n` +
     `【系统设置】\n` +
     `群管 系统 开机 / 开机 - 启用机器人\n` +
     `群管 系统 关机 / 关机 - 停用机器人\n` +
