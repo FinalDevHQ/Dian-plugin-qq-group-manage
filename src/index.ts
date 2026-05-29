@@ -12,12 +12,14 @@ import { permService, PermissionLevel } from "./services/permission.js";
 import { adKillerService, AdPunishment } from "./services/ad-killer.js";
 import { messageLogService } from "./services/message-log.js";
 import { templateService } from "./services/template.js";
+import { notifyService } from "./services/notify.js";
 import { pluginState } from "./services/state.js";
 import { registerAllCommands } from "./commands/index.js";
 import { registerOwnerRoutes } from "./routes/owner.js";
 import { registerGroupRoutes } from "./routes/group.js";
 import { registerAdKillerRoutes } from "./routes/ad-killer.js";
 import { registerTemplateRoutes } from "./routes/template.js";
+import { registerNotifyRoutes } from "./routes/notify.js";
 
 @Plugin({
   name: "qq-group-manage",
@@ -44,6 +46,7 @@ export default class QQGroupManagePlugin {
       await adKillerService.init(ctx.store);
       await messageLogService.init(ctx.store);
       await templateService.init(ctx.store);
+      await notifyService.init(ctx.store);
       this.dbInitialized = true;
     }
 
@@ -51,13 +54,13 @@ export default class QQGroupManagePlugin {
       pluginState.sendAction = ctx.sendAction;
     }
 
-    // Handle group leave/kick events for auto blacklist
+    // Handle group leave/kick events for auto blacklist + notify
     if (ctx.event.type === "notice") {
       const subtype = ctx.event.subtype;
       const groupId = ctx.event.payload.groupId;
       const userId = ctx.event.payload.userId;
 
-      if (groupId && userId && (subtype === "group_decrease" || subtype === "leave" || subtype === "kick")) {
+      if (groupId && userId && subtype === "notice.group_decrease") {
         const shouldAutoBlacklist = await permService.isAutoBlacklistOnLeave(groupId);
         if (shouldAutoBlacklist) {
           const isAlreadyBlacklisted = await permService.isBlacklisted(groupId, userId);
@@ -65,6 +68,76 @@ export default class QQGroupManagePlugin {
             await permService.addToBlacklist(groupId, userId, "退群自动拉黑");
             console.log(`[qq-group-manage] Auto blacklisted ${userId} in group ${groupId}`);
           }
+        }
+
+        // Leave notification
+        try {
+          const notifyConfig = await notifyService.getEffectiveConfig(groupId);
+          if (notifyConfig.leaveEnabled && notifyConfig.leaveMsg) {
+            const groupInfo = await ctx.sendAction("get_group_info", { group_id: Number(groupId) });
+            const groupName = (groupInfo.data as Record<string, unknown>)?.group_name as string || "";
+            const memberCount = String((groupInfo.data as Record<string, unknown>)?.member_count ?? "");
+
+            let username = String(userId);
+            try {
+              const strangerInfo = await ctx.sendAction("get_stranger_info", { user_id: Number(userId) });
+              const nickname = (strangerInfo.data as Record<string, unknown>)?.nickname as string || "";
+              const card = (strangerInfo.data as Record<string, unknown>)?.card as string || "";
+              username = card || nickname || String(userId);
+            } catch (_) {}
+
+            const vars = { username, groupName, memberCount, botName: ctx.event.botId || "" };
+            const msg = notifyService.replaceVars(notifyConfig.leaveMsg, vars);
+            await ctx.sendAction("send_group_msg", {
+              group_id: Number(groupId),
+              message: msg,
+            });
+          }
+        } catch (err) {
+          console.log(`[qq-group-manage] Leave notify error:`, err);
+        }
+      }
+
+      // Welcome notification + mute on join
+      if (groupId && userId && subtype === "notice.group_increase") {
+        try {
+          const notifyConfig = await notifyService.getEffectiveConfig(groupId);
+
+          // Mute on join
+          if (notifyConfig.muteOnJoin && notifyConfig.muteDuration > 0) {
+            try {
+              await ctx.sendAction("set_group_ban", {
+                group_id: Number(groupId),
+                user_id: Number(userId),
+                duration: notifyConfig.muteDuration,
+              });
+            } catch (_) {}
+          }
+
+          // Welcome message
+          if (notifyConfig.welcomeEnabled && notifyConfig.welcomeMsg) {
+            const groupInfo = await ctx.sendAction("get_group_info", { group_id: Number(groupId) });
+            const groupName = (groupInfo.data as Record<string, unknown>)?.group_name as string || "";
+            const memberCount = String((groupInfo.data as Record<string, unknown>)?.member_count ?? "");
+
+            let username = String(userId);
+            try {
+              const memberInfo = await ctx.sendAction("get_group_member_info", { group_id: Number(groupId), user_id: Number(userId) });
+              const nickname = (memberInfo.data as Record<string, unknown>)?.nickname as string || "";
+              const card = (memberInfo.data as Record<string, unknown>)?.card as string || "";
+              username = card || nickname || String(userId);
+            } catch (_) {}
+
+            const vars = { username, groupName, memberCount, botName: ctx.event.botId || "" };
+            let msg = notifyService.replaceVars(notifyConfig.welcomeMsg, vars);
+            msg = msg.replace(/\{at\}/g, `[CQ:at,qq=${userId}]`);
+            await ctx.sendAction("send_group_msg", {
+              group_id: Number(groupId),
+              message: msg,
+            });
+          }
+        } catch (err) {
+          console.log(`[qq-group-manage] Welcome notify error:`, err);
         }
       }
     }
@@ -170,6 +243,7 @@ export default class QQGroupManagePlugin {
     registerGroupRoutes(ctx, permService);
     registerAdKillerRoutes(ctx);
     registerTemplateRoutes(ctx);
+    registerNotifyRoutes(ctx);
 
     ctx.route("GET", "/status", (_req, reply) => {
       reply.send({
