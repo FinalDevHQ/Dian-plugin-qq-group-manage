@@ -14,6 +14,7 @@ const TABLES = {
   SUPER_ADMINS: "qgm_super_admins",
   GROUP_MODERATORS: "qgm_group_moderators",
   GROUP_SETTINGS: "qgm_group_settings",
+  REPLY_MODE: "qgm_reply_mode",
   BLACKLIST: "qgm_blacklist",
   WHITELIST: "qgm_whitelist",
 };
@@ -24,6 +25,7 @@ export interface GroupSettings {
   muted: boolean;
   exclusiveMode: boolean;
   autoBlacklistOnLeave: boolean;
+  replyMode: string;
 }
 
 export interface BlacklistEntry {
@@ -45,6 +47,7 @@ const DEFAULT_SETTINGS: Omit<GroupSettings, "groupId"> = {
   muted: false,
   exclusiveMode: false,
   autoBlacklistOnLeave: false,
+  replyMode: "text",
 };
 
 export class PermissionService {
@@ -65,6 +68,10 @@ export class PermissionService {
       "muted INTEGER NOT NULL DEFAULT 0",
       "exclusive_mode INTEGER NOT NULL DEFAULT 0",
       "auto_blacklist_on_leave INTEGER NOT NULL DEFAULT 0",
+    ]);
+    await this.db.createTable(TABLES.REPLY_MODE, [
+      "group_id TEXT NOT NULL",
+      "mode TEXT NOT NULL DEFAULT 'text'",
     ]);
     await this.db.createTable(TABLES.BLACKLIST, [
       "group_id TEXT NOT NULL",
@@ -181,38 +188,71 @@ export class PermissionService {
 
   async getGroupSettings(groupId: string): Promise<GroupSettings> {
     const db = this.getDb();
-    const rows = await db.query(TABLES.GROUP_SETTINGS, { group_id: groupId });
+    try {
+      const rows = await db.query(TABLES.GROUP_SETTINGS, { group_id: groupId });
 
-    if (rows.length === 0) {
+      // Read reply_mode from dedicated table
+      let replyMode = "text";
+      try {
+        const modeRows = await db.query(TABLES.REPLY_MODE, { group_id: groupId });
+        if (modeRows.length > 0) replyMode = (modeRows[0].mode as string) || "text";
+      } catch {}
+
+      if (rows.length === 0) {
+        return { groupId, ...DEFAULT_SETTINGS, replyMode };
+      }
+
+      const row = rows[0];
+      return {
+        groupId,
+        enabled: Boolean(row.enabled),
+        muted: Boolean(row.muted),
+        exclusiveMode: Boolean(row.exclusive_mode),
+        autoBlacklistOnLeave: Boolean(row.auto_blacklist_on_leave),
+        replyMode,
+      };
+    } catch {
       return { groupId, ...DEFAULT_SETTINGS };
     }
-
-    const row = rows[0];
-    return {
-      groupId,
-      enabled: Boolean(row.enabled),
-      muted: Boolean(row.muted),
-      exclusiveMode: Boolean(row.exclusive_mode),
-      autoBlacklistOnLeave: Boolean(row.auto_blacklist_on_leave),
-    };
   }
 
   async updateGroupSettings(groupId: string, settings: Partial<Omit<GroupSettings, "groupId">>): Promise<void> {
     const db = this.getDb();
-    const existing = await db.query(TABLES.GROUP_SETTINGS, { group_id: groupId });
 
-    const currentSettings = existing.length > 0 ? {
-      enabled: Boolean(existing[0].enabled),
-      muted: Boolean(existing[0].muted),
-      exclusiveMode: Boolean(existing[0].exclusive_mode),
-      autoBlacklistOnLeave: existing[0].auto_blacklist_on_leave !== undefined ? Boolean(existing[0].auto_blacklist_on_leave) : false,
-    } : { ...DEFAULT_SETTINGS };
+    // Handle replyMode separately in dedicated table
+    if (settings.replyMode !== undefined) {
+      try {
+        await db.delete(TABLES.REPLY_MODE, { group_id: groupId });
+        await db.insert(TABLES.REPLY_MODE, { group_id: groupId, mode: settings.replyMode });
+        console.log(`[updateGroupSettings] reply_mode saved: ${settings.replyMode} for group ${groupId}`);
+      } catch (err) {
+        console.log(`[updateGroupSettings] reply_mode save error:`, err);
+      }
+    }
+
+    // Only update qgm_group_settings if non-replyMode fields are being changed
+    const otherKeys = Object.keys(settings).filter(k => k !== "replyMode");
+    if (otherKeys.length === 0) return;
+
+    let currentSettings = { ...DEFAULT_SETTINGS };
+    try {
+      const existing = await db.query(TABLES.GROUP_SETTINGS, { group_id: groupId });
+      if (existing.length > 0) {
+        const row = existing[0];
+        currentSettings = {
+          enabled: Boolean(row.enabled),
+          muted: Boolean(row.muted),
+          exclusiveMode: Boolean(row.exclusive_mode),
+          autoBlacklistOnLeave: row.auto_blacklist_on_leave !== undefined ? Boolean(row.auto_blacklist_on_leave) : false,
+          replyMode: "text",
+        };
+        await db.delete(TABLES.GROUP_SETTINGS, { group_id: groupId });
+      }
+    } catch {
+      try { await db.delete(TABLES.GROUP_SETTINGS, { group_id: groupId }); } catch {}
+    }
 
     const newSettings = { ...currentSettings, ...settings };
-
-    if (existing.length > 0) {
-      await db.delete(TABLES.GROUP_SETTINGS, { group_id: groupId });
-    }
 
     await db.insert(TABLES.GROUP_SETTINGS, {
       group_id: groupId,
