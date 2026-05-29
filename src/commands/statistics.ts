@@ -3,7 +3,7 @@ import type { PermissionService } from "../services/permission.js";
 import { PermissionLevel } from "../services/permission.js";
 import { extractMentionedQQ, requirePermission } from "./permission.js";
 import { statisticsService, type TimeRange, type LeaderboardEntry } from "../services/statistics.js";
-import { renderLeaderboardHtml } from "../services/leaderboard-template.js";
+import { renderLeaderboardHtml, renderPersonalStatsHtml, renderGroupStatsHtml } from "../services/leaderboard-template.js";
 import { isPuppeteerAvailable, renderHtmlToImage } from "../services/render.js";
 import { pluginState } from "../services/state.js";
 
@@ -15,9 +15,10 @@ const RANGE_LABELS: Record<TimeRange, string> = {
   all: "全部",
 };
 
+// ===== Helpers =====
+
 async function resolveNicknames(entries: LeaderboardEntry[]): Promise<LeaderboardEntry[]> {
   if (!pluginState.available || entries.length === 0) return entries;
-
   const results = await Promise.allSettled(
     entries.map((e) =>
       pluginState.sendAction("get_stranger_info", { user_id: Number(e.userId) }).then((res) => ({
@@ -26,18 +27,11 @@ async function resolveNicknames(entries: LeaderboardEntry[]): Promise<Leaderboar
       }))
     )
   );
-
   const nameMap: Record<string, string> = {};
   for (const r of results) {
-    if (r.status === "fulfilled") {
-      nameMap[r.value.userId] = r.value.nickname;
-    }
+    if (r.status === "fulfilled") nameMap[r.value.userId] = r.value.nickname;
   }
-
-  return entries.map((e) => ({
-    ...e,
-    nickname: nameMap[e.userId] || e.nickname || e.userId,
-  }));
+  return entries.map((e) => ({ ...e, nickname: nameMap[e.userId] || e.nickname || e.userId }));
 }
 
 async function getNickname(userId: string): Promise<string> {
@@ -45,9 +39,15 @@ async function getNickname(userId: string): Promise<string> {
   try {
     const res = await pluginState.sendAction("get_stranger_info", { user_id: Number(userId) });
     return (res.data as Record<string, unknown>)?.nickname as string || userId;
-  } catch {
-    return userId;
-  }
+  } catch { return userId; }
+}
+
+async function getGroupName(groupId: string): Promise<string> {
+  if (!pluginState.available) return groupId;
+  try {
+    const res = await pluginState.sendAction("get_group_info", { group_id: Number(groupId) });
+    return (res.data as Record<string, unknown>)?.group_name as string || groupId;
+  } catch { return groupId; }
 }
 
 function formatTextLeaderboard(entries: Array<{ userId: string; nickname: string; count: number; percentage: number }>, title: string, rangeLabel: string): string {
@@ -63,6 +63,48 @@ function formatTextLeaderboard(entries: Array<{ userId: string; nickname: string
   return lines.join("\n");
 }
 
+function formatPersonalStatsText(nickname: string, stats: { today: number; week: number; month: number; year: number; all: number }, rank: number): string {
+  return (
+    `📊 ${nickname} 的发言统计\n` +
+    `────────────────\n` +
+    `今日: ${stats.today}条\n` +
+    `本周: ${stats.week}条\n` +
+    `本月: ${stats.month}条\n` +
+    `本年: ${stats.year}条\n` +
+    `总计: ${stats.all}条\n` +
+    `排名: 第${rank}名`
+  );
+}
+
+function formatGroupStatsText(groupName: string, stats: { totalToday: number; totalWeek: number; totalMonth: number; totalYear: number; totalAll: number; uniqueToday: number; uniqueAll: number }): string {
+  return (
+    `📊 ${groupName} 发言统计\n` +
+    `────────────────\n` +
+    `今日: ${stats.totalToday}条 (${stats.uniqueToday}人)\n` +
+    `本周: ${stats.totalWeek}条\n` +
+    `本月: ${stats.totalMonth}条\n` +
+    `本年: ${stats.totalYear}条\n` +
+    `总计: ${stats.totalAll}条 (${stats.uniqueAll}人)`
+  );
+}
+
+// Send image if Puppeteer available, otherwise text fallback
+async function sendImageOrText(c: EventContext, groupId: string, html: string, fallbackText: string): Promise<void> {
+  const available = await isPuppeteerAvailable();
+  if (available) {
+    const base64 = await renderHtmlToImage(html);
+    if (base64) {
+      try {
+        await c.sendAction("send_group_msg", { group_id: Number(groupId), message: [{ type: "image" as const, data: { file: `base64://${base64}` } }] });
+        return;
+      } catch (err) { console.log(`[statistics] send image error:`, err); }
+    }
+  }
+  await c.reply(fallbackText);
+}
+
+// ===== Help Text =====
+
 const HELP_TEXT =
   `📊 发言统计\n` +
   `────────────────\n` +
@@ -73,8 +115,13 @@ const HELP_TEXT =
   `本月发言 - 本月排行\n` +
   `本年发言 - 本年排行\n` +
   `查发言 @某人 - 查看某人发言\n` +
+  `────────────────\n` +
   `排行 图片 - 今日排行图片\n` +
+  `我的发言图片 - 个人统计图片\n` +
+  `统计图片 - 群统计图片\n` +
   `排行 设置显示 N - 显示人数`;
+
+// ===== Main Command =====
 
 export function getStatisticsCommands(permService: PermissionService) {
   return {
@@ -89,16 +136,17 @@ export function getStatisticsCommands(permService: PermissionService) {
       await c.reply(HELP_TEXT);
     },
     children: [
+      // ===== Help =====
       {
         name: "帮助",
         aliases: ["help"],
         pattern: /^(发言统计\s+帮助|群管\s+排行\s+帮助|排行\s+帮助)$/,
         description: "查看发言统计帮助",
         order: 0,
-        handler: async (c: EventContext) => {
-          await c.reply(HELP_TEXT);
-        },
+        handler: async (c: EventContext) => { await c.reply(HELP_TEXT); },
       },
+
+      // ===== 我的发言 (text) =====
       {
         name: "我的发言",
         aliases: ["my-stats"],
@@ -111,24 +159,86 @@ export function getStatisticsCommands(permService: PermissionService) {
           if (!groupId || !userId) { await c.reply("无法获取用户信息"); return; }
           const stats = await statisticsService.getUserStats(groupId, userId);
           const nickname = await getNickname(userId);
-          await c.reply(
-            `📊 ${nickname} 的发言统计\n` +
-            `────────────────\n` +
-            `今日: ${stats.today}条\n` +
-            `本周: ${stats.week}条\n` +
-            `本月: ${stats.month}条\n` +
-            `本年: ${stats.year}条\n` +
-            `总计: ${stats.all}条\n` +
-            `排名: 第${stats.rank}名`
-          );
+          await c.reply(formatPersonalStatsText(nickname, stats, stats.rank));
         },
       },
+
+      // ===== 我的发言图片 =====
+      {
+        name: "我的发言图片",
+        aliases: ["my-stats-img"],
+        pattern: /^(发言统计\s+我的发言图片|我的发言图片|排行\s+我的发言图片)$/,
+        description: "我的发言统计图片",
+        order: 2,
+        handler: async (c: EventContext) => {
+          const groupId = c.event.payload.groupId;
+          const userId = c.event.payload.userId;
+          if (!groupId || !userId) { await c.reply("无法获取用户信息"); return; }
+          const stats = await statisticsService.getUserStats(groupId, userId);
+          const nickname = await getNickname(userId);
+          const avatar = `https://q1.qlogo.cn/g?b=qq&nk=${userId}&s=640`;
+          const groupRows = await statisticsService.getLeaderboard(groupId, "all", 999);
+          const html = renderPersonalStatsHtml({
+            nickname, avatar, rank: stats.rank, totalRanked: groupRows.length,
+            stats: { today: stats.today, week: stats.week, month: stats.month, year: stats.year, all: stats.all },
+            date: new Date().toLocaleString("zh-CN"),
+          });
+          await sendImageOrText(c, groupId, html, formatPersonalStatsText(nickname, stats, stats.rank));
+        },
+      },
+
+      // ===== 查发言 @某人 (text) =====
+      {
+        name: "查发言",
+        aliases: ["check-stats"],
+        pattern: /^(发言统计\s+查发言|查发言|排行\s+查发言)\s*\[CQ:at/,
+        description: "查看某人发言统计",
+        order: 3,
+        handler: async (c: EventContext) => {
+          const groupId = c.event.payload.groupId;
+          if (!groupId) return;
+          const text = c.event.payload.text || "";
+          const targetQQ = extractMentionedQQ(text);
+          if (!targetQQ) { await c.reply("格式: 查发言 @某人"); return; }
+          const stats = await statisticsService.getUserStats(groupId, targetQQ);
+          const nickname = await getNickname(targetQQ);
+          await c.reply(formatPersonalStatsText(nickname, stats, stats.rank));
+        },
+      },
+
+      // ===== 查发言图片 @某人 =====
+      {
+        name: "查发言图片",
+        aliases: ["check-stats-img"],
+        pattern: /^(发言统计\s+查发言图片|查发言图片|排行\s+查发言图片)\s*\[CQ:at/,
+        description: "查看某人发言统计图片",
+        order: 4,
+        handler: async (c: EventContext) => {
+          const groupId = c.event.payload.groupId;
+          if (!groupId) return;
+          const text = c.event.payload.text || "";
+          const targetQQ = extractMentionedQQ(text);
+          if (!targetQQ) { await c.reply("格式: 查发言图片 @某人"); return; }
+          const stats = await statisticsService.getUserStats(groupId, targetQQ);
+          const nickname = await getNickname(targetQQ);
+          const avatar = `https://q1.qlogo.cn/g?b=qq&nk=${targetQQ}&s=640`;
+          const groupRows = await statisticsService.getLeaderboard(groupId, "all", 999);
+          const html = renderPersonalStatsHtml({
+            nickname, avatar, rank: stats.rank, totalRanked: groupRows.length,
+            stats: { today: stats.today, week: stats.week, month: stats.month, year: stats.year, all: stats.all },
+            date: new Date().toLocaleString("zh-CN"),
+          });
+          await sendImageOrText(c, groupId, html, formatPersonalStatsText(nickname, stats, stats.rank));
+        },
+      },
+
+      // ===== 今日发言 =====
       {
         name: "今日发言",
         aliases: ["today-stats"],
         pattern: /^(发言统计\s+今日发言|今日发言|排行\s+今日发言)$/,
         description: "今日发言排行",
-        order: 2,
+        order: 10,
         handler: async (c: EventContext) => {
           const groupId = c.event.payload.groupId;
           if (!groupId) return;
@@ -139,11 +249,25 @@ export function getStatisticsCommands(permService: PermissionService) {
         },
       },
       {
+        name: "今日发言图片",
+        aliases: ["today-stats-img"],
+        pattern: /^(发言统计\s+今日发言图片|今日发言图片|排行\s+今日发言图片)$/,
+        description: "今日发言排行图片",
+        order: 11,
+        handler: async (c: EventContext) => {
+          const groupId = c.event.payload.groupId;
+          if (!groupId) return;
+          await sendLeaderboardImage(c, groupId, "today");
+        },
+      },
+
+      // ===== 本周发言 =====
+      {
         name: "本周发言",
         aliases: ["week-stats"],
         pattern: /^(发言统计\s+本周发言|本周发言|排行\s+本周发言)$/,
         description: "本周发言排行",
-        order: 3,
+        order: 12,
         handler: async (c: EventContext) => {
           const groupId = c.event.payload.groupId;
           if (!groupId) return;
@@ -154,11 +278,25 @@ export function getStatisticsCommands(permService: PermissionService) {
         },
       },
       {
+        name: "本周发言图片",
+        aliases: ["week-stats-img"],
+        pattern: /^(发言统计\s+本周发言图片|本周发言图片|排行\s+本周发言图片)$/,
+        description: "本周发言排行图片",
+        order: 13,
+        handler: async (c: EventContext) => {
+          const groupId = c.event.payload.groupId;
+          if (!groupId) return;
+          await sendLeaderboardImage(c, groupId, "week");
+        },
+      },
+
+      // ===== 本月发言 =====
+      {
         name: "本月发言",
         aliases: ["month-stats"],
         pattern: /^(发言统计\s+本月发言|本月发言|排行\s+本月发言)$/,
         description: "本月发言排行",
-        order: 4,
+        order: 14,
         handler: async (c: EventContext) => {
           const groupId = c.event.payload.groupId;
           if (!groupId) return;
@@ -169,11 +307,25 @@ export function getStatisticsCommands(permService: PermissionService) {
         },
       },
       {
+        name: "本月发言图片",
+        aliases: ["month-stats-img"],
+        pattern: /^(发言统计\s+本月发言图片|本月发言图片|排行\s+本月发言图片)$/,
+        description: "本月发言排行图片",
+        order: 15,
+        handler: async (c: EventContext) => {
+          const groupId = c.event.payload.groupId;
+          if (!groupId) return;
+          await sendLeaderboardImage(c, groupId, "month");
+        },
+      },
+
+      // ===== 本年发言 =====
+      {
         name: "本年发言",
         aliases: ["year-stats"],
         pattern: /^(发言统计\s+本年发言|本年发言|排行\s+本年发言)$/,
         description: "本年发言排行",
-        order: 5,
+        order: 16,
         handler: async (c: EventContext) => {
           const groupId = c.event.payload.groupId;
           if (!groupId) return;
@@ -184,37 +336,62 @@ export function getStatisticsCommands(permService: PermissionService) {
         },
       },
       {
-        name: "查发言",
-        aliases: ["check-stats"],
-        pattern: /^(发言统计\s+查发言|查发言|排行\s+查发言)\s*\[CQ:at/,
-        description: "查看某人发言统计",
-        order: 6,
+        name: "本年发言图片",
+        aliases: ["year-stats-img"],
+        pattern: /^(发言统计\s+本年发言图片|本年发言图片|排行\s+本年发言图片)$/,
+        description: "本年发言排行图片",
+        order: 17,
         handler: async (c: EventContext) => {
           const groupId = c.event.payload.groupId;
           if (!groupId) return;
-          const text = c.event.payload.text || "";
-          const targetQQ = extractMentionedQQ(text);
-          if (!targetQQ) { await c.reply("格式: 查发言 @某人"); return; }
-          const stats = await statisticsService.getUserStats(groupId, targetQQ);
-          const nickname = await getNickname(targetQQ);
-          await c.reply(
-            `📊 ${nickname} 的发言统计\n` +
-            `────────────────\n` +
-            `今日: ${stats.today}条\n` +
-            `本周: ${stats.week}条\n` +
-            `本月: ${stats.month}条\n` +
-            `本年: ${stats.year}条\n` +
-            `总计: ${stats.all}条\n` +
-            `排名: 第${stats.rank}名`
-          );
+          await sendLeaderboardImage(c, groupId, "year");
         },
       },
+
+      // ===== 统计 (text) =====
+      {
+        name: "统计",
+        aliases: ["stats"],
+        pattern: /^(发言统计\s+统计|群管\s+排行\s+统计|排行\s+统计)$/,
+        description: "详细统计数据",
+        order: 20,
+        handler: async (c: EventContext) => {
+          const groupId = c.event.payload.groupId;
+          if (!groupId) return;
+          const groupName = await getGroupName(groupId);
+          const stats = await statisticsService.getGroupStats(groupId);
+          await c.reply(formatGroupStatsText(groupName, stats));
+        },
+      },
+
+      // ===== 统计图片 =====
+      {
+        name: "统计图片",
+        aliases: ["stats-img"],
+        pattern: /^(发言统计\s+统计图片|统计图片|排行\s+统计图片)$/,
+        description: "群统计数据图片",
+        order: 21,
+        handler: async (c: EventContext) => {
+          const groupId = c.event.payload.groupId;
+          if (!groupId) return;
+          const groupName = await getGroupName(groupId);
+          const stats = await statisticsService.getGroupStats(groupId);
+          const html = renderGroupStatsHtml({
+            groupName,
+            stats: { totalToday: stats.totalToday, totalWeek: stats.totalWeek, totalMonth: stats.totalMonth, totalYear: stats.totalYear, totalAll: stats.totalAll, uniqueToday: stats.uniqueToday, uniqueAll: stats.uniqueAll },
+            date: new Date().toLocaleString("zh-CN"),
+          });
+          await sendImageOrText(c, groupId, html, formatGroupStatsText(groupName, stats));
+        },
+      },
+
+      // ===== Legacy: 排行 今日/本周/本月/全部 (text) =====
       {
         name: "今日",
         aliases: ["today"],
         pattern: /^(群管\s+排行\s+今日|排行\s+今日)$/,
         description: "今日排行",
-        order: 10,
+        order: 30,
         handler: async (c: EventContext) => {
           const groupId = c.event.payload.groupId;
           if (!groupId) return;
@@ -229,7 +406,7 @@ export function getStatisticsCommands(permService: PermissionService) {
         aliases: ["week"],
         pattern: /^(群管\s+排行\s+本周|排行\s+本周)$/,
         description: "本周排行",
-        order: 11,
+        order: 31,
         handler: async (c: EventContext) => {
           const groupId = c.event.payload.groupId;
           if (!groupId) return;
@@ -244,7 +421,7 @@ export function getStatisticsCommands(permService: PermissionService) {
         aliases: ["month"],
         pattern: /^(群管\s+排行\s+本月|排行\s+本月)$/,
         description: "本月排行",
-        order: 12,
+        order: 32,
         handler: async (c: EventContext) => {
           const groupId = c.event.payload.groupId;
           if (!groupId) return;
@@ -259,7 +436,7 @@ export function getStatisticsCommands(permService: PermissionService) {
         aliases: ["all", "总排行"],
         pattern: /^(群管\s+排行\s+全部|排行\s+全部|排行\s+总排行)$/,
         description: "全部排行",
-        order: 13,
+        order: 33,
         handler: async (c: EventContext) => {
           const groupId = c.event.payload.groupId;
           if (!groupId) return;
@@ -269,12 +446,14 @@ export function getStatisticsCommands(permService: PermissionService) {
           await c.reply(formatTextLeaderboard(entries, settings.title, "全部"));
         },
       },
+
+      // ===== Legacy: 排行 图片 =====
       {
         name: "图片",
         aliases: ["img", "图"],
         pattern: /^(发言统计\s+图片|群管\s+排行\s+图片|排行\s+图片|排行\s+图)$/,
         description: "今日排行图片",
-        order: 14,
+        order: 34,
         handler: async (c: EventContext) => {
           const groupId = c.event.payload.groupId;
           if (!groupId) return;
@@ -286,7 +465,7 @@ export function getStatisticsCommands(permService: PermissionService) {
         aliases: ["week-img"],
         pattern: /^(发言统计\s+本周图片|群管\s+排行\s+本周图片|排行\s+本周图片)$/,
         description: "本周排行图片",
-        order: 15,
+        order: 35,
         handler: async (c: EventContext) => {
           const groupId = c.event.payload.groupId;
           if (!groupId) return;
@@ -298,40 +477,21 @@ export function getStatisticsCommands(permService: PermissionService) {
         aliases: ["month-img"],
         pattern: /^(发言统计\s+本月图片|群管\s+排行\s+本月图片|排行\s+本月图片)$/,
         description: "本月排行图片",
-        order: 16,
+        order: 36,
         handler: async (c: EventContext) => {
           const groupId = c.event.payload.groupId;
           if (!groupId) return;
           await sendLeaderboardImage(c, groupId, "month");
         },
       },
-      {
-        name: "统计",
-        aliases: ["stats"],
-        pattern: /^(发言统计\s+统计|群管\s+排行\s+统计|排行\s+统计)$/,
-        description: "详细统计数据",
-        order: 17,
-        handler: async (c: EventContext) => {
-          const groupId = c.event.payload.groupId;
-          if (!groupId) return;
-          const stats = await statisticsService.getGroupStats(groupId);
-          await c.reply(
-            `📊 本群发言统计\n` +
-            `────────────────\n` +
-            `今日: ${stats.totalToday}条 (${stats.uniqueToday}人)\n` +
-            `本周: ${stats.totalWeek}条\n` +
-            `本月: ${stats.totalMonth}条\n` +
-            `本年: ${stats.totalYear}条\n` +
-            `总计: ${stats.totalAll}条 (${stats.uniqueAll}人)`
-          );
-        },
-      },
+
+      // ===== 设置显示 =====
       {
         name: "设置显示",
         aliases: ["set-limit"],
         pattern: /^(群管\s+排行\s+设置显示|排行\s+设置显示|发言统计\s+设置显示)\s*\d+/,
         description: "设置排行榜显示人数",
-        order: 18,
+        order: 40,
         handler: async (c: EventContext) => {
           const ctx = await requirePermission(c, permService, PermissionLevel.ADMIN);
           if (!ctx) return;
@@ -348,16 +508,9 @@ export function getStatisticsCommands(permService: PermissionService) {
   };
 }
 
-async function sendLeaderboardImage(c: EventContext, groupId: string, range: TimeRange): Promise<void> {
-  const available = await isPuppeteerAvailable();
-  if (!available) {
-    const settings = await statisticsService.getSettings(groupId);
-    const rawEntries = await statisticsService.getLeaderboard(groupId, range);
-    const entries = await resolveNicknames(rawEntries);
-    await c.reply(formatTextLeaderboard(entries, settings.title, RANGE_LABELS[range]));
-    return;
-  }
+// ===== Leaderboard Image Sender =====
 
+async function sendLeaderboardImage(c: EventContext, groupId: string, range: TimeRange): Promise<void> {
   const settings = await statisticsService.getSettings(groupId);
   const rawEntries = await statisticsService.getLeaderboard(groupId, range);
   const entries = await resolveNicknames(rawEntries);
@@ -375,16 +528,5 @@ async function sendLeaderboardImage(c: EventContext, groupId: string, range: Tim
     totalMessages: totalMap[range],
   });
 
-  const base64 = await renderHtmlToImage(html);
-  if (base64) {
-    try {
-      const message = [{ type: "image" as const, data: { file: `base64://${base64}` } }];
-      await c.sendAction("send_group_msg", { group_id: Number(groupId), message });
-      return;
-    } catch (err) {
-      console.log(`[statistics] send image error:`, err);
-    }
-  }
-
-  await c.reply(formatTextLeaderboard(entries, settings.title, RANGE_LABELS[range]));
+  await sendImageOrText(c, groupId, html, formatTextLeaderboard(entries, settings.title, RANGE_LABELS[range]));
 }
