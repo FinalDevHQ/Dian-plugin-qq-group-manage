@@ -28,29 +28,32 @@ const BUILTIN_TEMPLATES: Record<string, Template> = {
     html: `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Microsoft YaHei',sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:24px;display:flex;justify-content:center}
-.card{background:#fff;border-radius:16px;padding:28px;width:400px;box-shadow:0 8px 32px rgba(0,0,0,.12)}
-.title{font-size:20px;font-weight:700;color:#1e293b;display:flex;align-items:center;gap:8px;margin-bottom:6px}
-.sub{font-size:12px;color:#94a3b8;margin-bottom:20px}
-.section{margin-bottom:16px}
-.section-title{font-size:11px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px}
-.row{display:flex;align-items:center;padding:8px 12px;border-radius:8px;margin-bottom:3px;background:#f8fafc}
-.cmd{font-size:13px;font-weight:600;color:#7c3aed;font-family:Consolas,monospace;width:160px;flex-shrink:0}
-.desc{font-size:12px;color:#64748b}
-.footer{margin-top:16px;padding-top:12px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:right}
+.card{background:#fff;border-radius:16px;padding:28px;width:360px;box-shadow:0 8px 32px rgba(0,0,0,.12)}
+.title{font-size:20px;font-weight:700;color:#1e293b;text-align:center;margin-bottom:4px}
+.sub{font-size:12px;color:#94a3b8;text-align:center;margin-bottom:20px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
+.item{background:#f8fafc;border-radius:10px;padding:14px 12px;text-align:center;font-size:14px;font-weight:600;color:#1e293b;cursor:pointer;transition:all .15s}
+.item:hover{background:#ede9fe;color:#7c3aed}
+.hint{font-size:11px;color:#94a3b8;text-align:center;margin-bottom:12px}
+.divider{height:1px;background:#e2e8f0;margin:12px 0}
+.footer{font-size:11px;color:#cbd5e1;text-align:center}
 </style></head><body><div class="card">
-<div class="title">👥 群组管理指令</div>
-<div class="sub">输入 群管 &lt;分类&gt; 帮助 查看详情</div>
-<div class="section"><div class="section-title">功能分类</div>
-<div class="row"><span class="cmd">群管 权限</span><span class="desc">权限管理</span></div>
-<div class="row"><span class="cmd">群管 管理员</span><span class="desc">管理员操作</span></div>
-<div class="row"><span class="cmd">群管 成员</span><span class="desc">成员管理</span></div>
-<div class="row"><span class="cmd">群管 名单</span><span class="desc">黑白名单</span></div>
-<div class="row"><span class="cmd">群管 广告</span><span class="desc">广告杀手</span></div>
-<div class="row"><span class="cmd">群管 提示</span><span class="desc">群内提示</span></div>
-<div class="row"><span class="cmd">发言统计</span><span class="desc">发言排行/我的发言</span></div>
-<div class="row"><span class="cmd">群管 系统</span><span class="desc">系统设置</span></div>
-<div class="row"><span class="cmd">图片模式</span><span class="desc">切换图片/文字回复</span></div>
+<div class="title">===小点管家===</div>
+<div class="sub">直接输入关键词即可使用</div>
+<div class="grid">
+<div class="item">权限管理</div>
+<div class="item">管理员操作</div>
+<div class="item">成员管理</div>
+<div class="item">黑白名单</div>
+<div class="item">广告杀手</div>
+<div class="item">群内提示</div>
+<div class="item">发言统计</div>
+<div class="item">系统设置</div>
+<div class="item">图片模式</div>
+<div class="item">查群状态</div>
 </div>
+<div class="divider"></div>
+<div class="hint">例: 成员管理 帮助</div>
 <div class="footer">{{time}}</div>
 </div></body></html>`,
   },

@@ -64,19 +64,15 @@ export function registerAllCommands(ctx: PluginSetupContext, permService: Permis
 async function showMainHelp(c: EventContext, permService: PermissionService): Promise<void> {
   const groupId = c.event.payload.groupId;
   const text =
-    `👥 群组管理指令\n` +
-    `────────────────\n` +
-    `群管 权限 - 权限管理\n` +
-    `群管 管理员 - 管理员操作\n` +
-    `群管 成员 - 成员管理\n` +
-    `群管 名单 - 黑白名单\n` +
-    `群管 广告 - 广告杀手\n` +
-    `群管 提示 - 群内提示\n` +
-    `群管 排行 - 发言统计\n` +
-    `群管 系统 - 系统设置\n` +
-    `图片模式 - 图片/文字切换\n` +
-    `────────────────\n` +
-    `输入 群管 <分类> 帮助 查看详情`;
+    `===小点管家===\n` +
+    `权限管理  管理员操作\n` +
+    `成员管理  黑白名单\n` +
+    `广告杀手  群内提示\n` +
+    `发言统计  系统设置\n` +
+    `图片模式  查群状态\n` +
+    `===========\n` +
+    `直接输入关键词即可使用\n` +
+    `例: 成员管理 帮助`;
 
   if (groupId) {
     await smartReply(c, text, groupId, permService, { templateId: "help_main", templateType: "help" });
