@@ -8,6 +8,7 @@ import { getBlacklistCommands } from "./blacklist.js";
 import { getAdKillerCommands } from "./ad-killer.js";
 import { getImageModeCommands } from "./image-mode.js";
 import { getNotifyCommands, getGlobalNotifyCommands } from "./notify.js";
+import { getStatisticsCommands } from "./statistics.js";
 import type { EventContext } from "@myfinal/plugin-runtime";
 import { smartReply } from "../services/render.js";
 
@@ -23,6 +24,7 @@ export function registerAllCommands(ctx: PluginSetupContext, permService: Permis
   const imageModeCmd = getImageModeCommands(permService);
   const notifyCmd = getNotifyCommands(permService);
   const globalNotifyCmd = getGlobalNotifyCommands(permService);
+  const statisticsCmd = getStatisticsCommands(permService);
 
   ctx.command({
     name: "群管",
@@ -53,6 +55,7 @@ export function registerAllCommands(ctx: PluginSetupContext, permService: Permis
       imageModeCmd,
       notifyCmd,
       globalNotifyCmd,
+      statisticsCmd,
       systemCmd,
     ],
   });
@@ -69,6 +72,7 @@ async function showMainHelp(c: EventContext, permService: PermissionService): Pr
     `群管 名单 - 黑白名单\n` +
     `群管 广告 - 广告杀手\n` +
     `群管 提示 - 群内提示\n` +
+    `群管 排行 - 发言统计\n` +
     `群管 系统 - 系统设置\n` +
     `图片模式 - 图片/文字切换\n` +
     `────────────────\n` +

@@ -13,6 +13,7 @@ import { adKillerService, AdPunishment } from "./services/ad-killer.js";
 import { messageLogService } from "./services/message-log.js";
 import { templateService } from "./services/template.js";
 import { notifyService } from "./services/notify.js";
+import { statisticsService } from "./services/statistics.js";
 import { pluginState } from "./services/state.js";
 import { registerAllCommands } from "./commands/index.js";
 import { registerOwnerRoutes } from "./routes/owner.js";
@@ -20,6 +21,7 @@ import { registerGroupRoutes } from "./routes/group.js";
 import { registerAdKillerRoutes } from "./routes/ad-killer.js";
 import { registerTemplateRoutes } from "./routes/template.js";
 import { registerNotifyRoutes } from "./routes/notify.js";
+import { registerStatisticsRoutes } from "./routes/statistics.js";
 
 @Plugin({
   name: "qq-group-manage",
@@ -47,6 +49,7 @@ export default class QQGroupManagePlugin {
       await messageLogService.init(ctx.store);
       await templateService.init(ctx.store);
       await notifyService.init(ctx.store);
+      await statisticsService.init(ctx.store);
       this.dbInitialized = true;
     }
 
@@ -244,6 +247,7 @@ export default class QQGroupManagePlugin {
     registerAdKillerRoutes(ctx);
     registerTemplateRoutes(ctx);
     registerNotifyRoutes(ctx);
+    registerStatisticsRoutes(ctx);
 
     ctx.route("GET", "/status", (_req, reply) => {
       reply.send({

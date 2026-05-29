@@ -5,8 +5,9 @@ import GroupManagement from "./pages/GroupManagement"
 import AdKillerManagement from "./pages/AdKillerManagement"
 import TemplateEditor from "./pages/TemplateEditor"
 import NotifyManagement from "./pages/NotifyManagement"
+import StatisticsManagement from "./pages/StatisticsManagement"
 
-type Page = "dashboard" | "owners" | "groups" | "ad-killer" | "templates" | "notify"
+type Page = "dashboard" | "owners" | "groups" | "ad-killer" | "templates" | "notify" | "statistics"
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState<Page>("dashboard")
@@ -23,6 +24,8 @@ export default function App() {
         return <TemplateEditor />
       case "notify":
         return <NotifyManagement />
+      case "statistics":
+        return <StatisticsManagement />
       default:
         return <Dashboard />
     }
@@ -35,6 +38,7 @@ export default function App() {
     { page: "ad-killer", label: "广告杀手", icon: <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /> },
     { page: "templates", label: "模板编辑", icon: <path strokeLinecap="round" strokeLinejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /> },
     { page: "notify", label: "群内提示", icon: <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /> },
+    { page: "statistics", label: "发言统计", icon: <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /> },
   ]
 
   return (

@@ -46,6 +46,8 @@ body{font-family:'Microsoft YaHei',sans-serif;background:linear-gradient(135deg,
 <div class="row"><span class="cmd">群管 成员</span><span class="desc">成员管理</span></div>
 <div class="row"><span class="cmd">群管 名单</span><span class="desc">黑白名单</span></div>
 <div class="row"><span class="cmd">群管 广告</span><span class="desc">广告杀手</span></div>
+<div class="row"><span class="cmd">群管 提示</span><span class="desc">群内提示</span></div>
+<div class="row"><span class="cmd">群管 排行</span><span class="desc">发言统计</span></div>
 <div class="row"><span class="cmd">群管 系统</span><span class="desc">系统设置</span></div>
 <div class="row"><span class="cmd">图片模式</span><span class="desc">切换图片/文字回复</span></div>
 </div>
