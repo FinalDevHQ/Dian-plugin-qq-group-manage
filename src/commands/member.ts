@@ -1,10 +1,10 @@
-import type { EventContext, PluginSetupContext } from "@myfinal/plugin-runtime";
+import type { EventContext } from "@myfinal/plugin-runtime";
 import type { PermissionService } from "../services/permission.js";
 import { PermissionLevel } from "../services/permission.js";
 import { extractMentionedQQ, requirePermission } from "./permission.js";
 
-export function registerMemberCommands(ctx: PluginSetupContext, permService: PermissionService): void {
-  ctx.command({
+export function getMemberCommands(permService: PermissionService) {
+  return {
     name: "成员",
     aliases: ["member"],
     description: "成员管理",
@@ -193,5 +193,5 @@ export function registerMemberCommands(ctx: PluginSetupContext, permService: Per
         },
       },
     ],
-  });
+  };
 }

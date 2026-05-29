@@ -1,10 +1,10 @@
-import type { EventContext, PluginSetupContext } from "@myfinal/plugin-runtime";
+import type { EventContext } from "@myfinal/plugin-runtime";
 import type { PermissionService } from "../services/permission.js";
 import { PermissionLevel } from "../services/permission.js";
 import { requirePermission } from "./permission.js";
 
-export function registerSystemCommands(ctx: PluginSetupContext, permService: PermissionService): void {
-  ctx.command({
+export function getSystemCommands(permService: PermissionService) {
+  return {
     name: "系统",
     aliases: ["sys"],
     description: "系统设置",
@@ -122,6 +122,7 @@ export function registerSystemCommands(ctx: PluginSetupContext, permService: Per
             `机器人状态: ${settings.enabled ? '✅ 已启用' : '❌ 已停用'}\n` +
             `发言状态: ${settings.muted ? '🔇 已闭嘴' : '🔊 正常发言'}\n` +
             `专属模式: ${settings.exclusiveMode ? '🔒 已开启' : '🔓 已关闭'}\n` +
+            `退群拉黑: ${settings.autoBlacklistOnLeave ? '✅ 已开启' : '❌ 已关闭'}\n` +
             `────────────────\n` +
             `你的身份: ${levelName}\n` +
             `主人数量: ${owners.length}\n` +
@@ -131,5 +132,5 @@ export function registerSystemCommands(ctx: PluginSetupContext, permService: Per
         },
       },
     ],
-  });
+  };
 }

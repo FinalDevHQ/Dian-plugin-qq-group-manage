@@ -1,4 +1,4 @@
-import type { EventContext, PluginSetupContext } from "@myfinal/plugin-runtime";
+import type { EventContext } from "@myfinal/plugin-runtime";
 import type { PermissionService } from "../services/permission.js";
 import { PermissionLevel } from "../services/permission.js";
 
@@ -27,8 +27,8 @@ export async function requirePermission(
   return { qqId, groupId };
 }
 
-export function registerPermissionCommands(ctx: PluginSetupContext, permService: PermissionService): void {
-  ctx.command({
+export function getPermissionCommands(permService: PermissionService) {
+  return {
     name: "权限",
     aliases: ["perm"],
     description: "权限管理",
@@ -197,5 +197,5 @@ export function registerPermissionCommands(ctx: PluginSetupContext, permService:
         ],
       },
     ],
-  });
+  };
 }

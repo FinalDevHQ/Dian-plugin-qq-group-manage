@@ -1,15 +1,21 @@
 import type { PluginSetupContext } from "@myfinal/plugin-runtime";
 import type { PermissionService } from "../services/permission.js";
-import { registerPermissionCommands } from "./permission.js";
-import { registerModeratorCommands } from "./moderator.js";
-import { registerSystemCommands } from "./system.js";
-import { registerMemberCommands } from "./member.js";
-import { registerBlacklistCommands } from "./blacklist.js";
+import { getPermissionCommands } from "./permission.js";
+import { getModeratorCommands } from "./moderator.js";
+import { getSystemCommands } from "./system.js";
+import { getMemberCommands } from "./member.js";
+import { getBlacklistCommands } from "./blacklist.js";
 import type { EventContext } from "@myfinal/plugin-runtime";
 
 export { extractMentionedQQ, requirePermission } from "./permission.js";
 
 export function registerAllCommands(ctx: PluginSetupContext, permService: PermissionService): void {
+  const permissionCmd = getPermissionCommands(permService);
+  const moderatorCmd = getModeratorCommands(permService);
+  const memberCmd = getMemberCommands(permService);
+  const blacklistCmd = getBlacklistCommands(permService);
+  const systemCmd = getSystemCommands(permService);
+
   ctx.command({
     name: "群管",
     aliases: ["qg", "群管理", "群组管理"],
@@ -31,14 +37,13 @@ export function registerAllCommands(ctx: PluginSetupContext, permService: Permis
           await showHelp(c);
         },
       },
+      permissionCmd,
+      moderatorCmd,
+      memberCmd,
+      blacklistCmd,
+      systemCmd,
     ],
   });
-
-  registerPermissionCommands(ctx, permService);
-  registerModeratorCommands(ctx, permService);
-  registerMemberCommands(ctx, permService);
-  registerBlacklistCommands(ctx, permService);
-  registerSystemCommands(ctx, permService);
 }
 
 async function showHelp(c: EventContext): Promise<void> {

@@ -1,10 +1,10 @@
-import type { EventContext, PluginSetupContext } from "@myfinal/plugin-runtime";
+import type { EventContext } from "@myfinal/plugin-runtime";
 import type { PermissionService } from "../services/permission.js";
 import { PermissionLevel } from "../services/permission.js";
 import { extractMentionedQQ, requirePermission } from "./permission.js";
 
-export function registerModeratorCommands(ctx: PluginSetupContext, permService: PermissionService): void {
-  ctx.command({
+export function getModeratorCommands(permService: PermissionService) {
+  return {
     name: "管理员",
     aliases: ["mod"],
     description: "QQ群管理员操作",
@@ -87,5 +87,5 @@ export function registerModeratorCommands(ctx: PluginSetupContext, permService: 
         },
       },
     ],
-  });
+  };
 }

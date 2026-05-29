@@ -1,4 +1,4 @@
-import type { EventContext, PluginSetupContext } from "@myfinal/plugin-runtime";
+import type { EventContext } from "@myfinal/plugin-runtime";
 import type { PermissionService } from "../services/permission.js";
 import { PermissionLevel } from "../services/permission.js";
 import { extractMentionedQQ, requirePermission } from "./permission.js";
@@ -15,8 +15,8 @@ function parseReasonAndQQ(text: string): { reason: string; qqId: string | null }
   return { reason, qqId };
 }
 
-export function registerBlacklistCommands(ctx: PluginSetupContext, permService: PermissionService): void {
-  ctx.command({
+export function getBlacklistCommands(permService: PermissionService) {
+  return {
     name: "名单",
     aliases: ["list"],
     description: "黑白名单管理",
@@ -270,5 +270,5 @@ export function registerBlacklistCommands(ctx: PluginSetupContext, permService: 
         ],
       },
     ],
-  });
+  };
 }

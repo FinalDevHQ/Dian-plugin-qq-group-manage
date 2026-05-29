@@ -143,7 +143,7 @@ export class PermissionService {
 
   async getAdmins(): Promise<Array<{ qqId: string; nickname: string }>> {
     const rows = await this.getDb().query(TABLES.ADMINS);
-    return rows.map((r) => ({ qq_id: r.qq_id as string, nickname: r.nickname as string }));
+    return rows.map((r) => ({ qqId: r.qq_id as string, nickname: r.nickname as string }));
   }
 
   async addSuperAdmin(groupId: string, qqId: string): Promise<void> {
@@ -201,24 +201,26 @@ export class PermissionService {
     const db = this.getDb();
     const existing = await db.query(TABLES.GROUP_SETTINGS, { group_id: groupId });
 
-    if (existing.length === 0) {
-      await db.insert(TABLES.GROUP_SETTINGS, {
-        group_id: groupId,
-        enabled: settings.enabled !== undefined ? (settings.enabled ? 1 : 0) : DEFAULT_SETTINGS.enabled ? 1 : 0,
-        muted: settings.muted !== undefined ? (settings.muted ? 1 : 0) : DEFAULT_SETTINGS.muted ? 1 : 0,
-        exclusive_mode: settings.exclusiveMode !== undefined ? (settings.exclusiveMode ? 1 : 0) : DEFAULT_SETTINGS.exclusiveMode ? 1 : 0,
-        auto_blacklist_on_leave: settings.autoBlacklistOnLeave !== undefined ? (settings.autoBlacklistOnLeave ? 1 : 0) : DEFAULT_SETTINGS.autoBlacklistOnLeave ? 1 : 0,
-      });
-    } else {
+    const currentSettings = existing.length > 0 ? {
+      enabled: Boolean(existing[0].enabled),
+      muted: Boolean(existing[0].muted),
+      exclusiveMode: Boolean(existing[0].exclusive_mode),
+      autoBlacklistOnLeave: existing[0].auto_blacklist_on_leave !== undefined ? Boolean(existing[0].auto_blacklist_on_leave) : false,
+    } : { ...DEFAULT_SETTINGS };
+
+    const newSettings = { ...currentSettings, ...settings };
+
+    if (existing.length > 0) {
       await db.delete(TABLES.GROUP_SETTINGS, { group_id: groupId });
-      await db.insert(TABLES.GROUP_SETTINGS, {
-        group_id: groupId,
-        enabled: (settings.enabled !== undefined ? settings.enabled : existing[0].enabled) ? 1 : 0,
-        muted: (settings.muted !== undefined ? settings.muted : existing[0].muted) ? 1 : 0,
-        exclusive_mode: (settings.exclusiveMode !== undefined ? settings.exclusiveMode : existing[0].exclusive_mode) ? 1 : 0,
-        auto_blacklist_on_leave: (settings.autoBlacklistOnLeave !== undefined ? settings.autoBlacklistOnLeave : existing[0].auto_blacklist_on_leave) ? 1 : 0,
-      });
     }
+
+    await db.insert(TABLES.GROUP_SETTINGS, {
+      group_id: groupId,
+      enabled: newSettings.enabled ? 1 : 0,
+      muted: newSettings.muted ? 1 : 0,
+      exclusive_mode: newSettings.exclusiveMode ? 1 : 0,
+      auto_blacklist_on_leave: newSettings.autoBlacklistOnLeave ? 1 : 0,
+    });
   }
 
   async isGroupEnabled(groupId: string): Promise<boolean> {
