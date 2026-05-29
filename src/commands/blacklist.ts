@@ -18,7 +18,8 @@ function parseReasonAndQQ(text: string): { reason: string; qqId: string | null }
 export function getBlacklistCommands(permService: PermissionService) {
   return {
     name: "名单",
-    aliases: ["list"],
+    aliases: ["list", "黑白名单"],
+    pattern: /^(群管\s+名单|名单|黑白名单)$/,
     description: "黑白名单管理",
     order: 28,
     handler: async (c: EventContext) => {

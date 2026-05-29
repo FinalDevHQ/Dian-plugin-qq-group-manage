@@ -6,7 +6,8 @@ import { requirePermission } from "./permission.js";
 export function getSystemCommands(permService: PermissionService) {
   return {
     name: "系统",
-    aliases: ["sys"],
+    aliases: ["sys", "系统设置"],
+    pattern: /^(群管\s+系统|系统|系统设置)$/,
     description: "系统设置",
     order: 30,
     handler: async (c: EventContext) => {

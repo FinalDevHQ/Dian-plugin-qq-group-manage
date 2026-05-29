@@ -6,7 +6,8 @@ import { extractMentionedQQ, requirePermission } from "./permission.js";
 export function getMemberCommands(permService: PermissionService) {
   return {
     name: "成员",
-    aliases: ["member"],
+    aliases: ["member", "成员管理"],
+    pattern: /^(群管\s+成员|成员|成员管理)$/,
     description: "成员管理",
     order: 25,
     handler: async (c: EventContext) => {

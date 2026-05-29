@@ -6,7 +6,8 @@ import { extractMentionedQQ, requirePermission } from "./permission.js";
 export function getModeratorCommands(permService: PermissionService) {
   return {
     name: "管理员",
-    aliases: ["mod"],
+    aliases: ["mod", "管理员操作"],
+    pattern: /^(群管\s+管理员|管理员|管理员操作)$/,
     description: "QQ群管理员操作",
     order: 20,
     handler: async (c: EventContext) => {

@@ -30,7 +30,8 @@ export async function requirePermission(
 export function getPermissionCommands(permService: PermissionService) {
   return {
     name: "权限",
-    aliases: ["perm"],
+    aliases: ["perm", "权限管理"],
+    pattern: /^(群管\s+权限|权限|权限管理)$/,
     description: "权限管理",
     order: 10,
     handler: async (c: EventContext) => {
