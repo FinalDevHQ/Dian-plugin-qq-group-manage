@@ -9,10 +9,13 @@ import {
 import { PKG_VERSION } from "./version.js";
 import { type Config, loadConfig, saveConfig } from "./config.js";
 import { permService, PermissionLevel } from "./services/permission.js";
+import { adKillerService, AdPunishment } from "./services/ad-killer.js";
+import { messageLogService } from "./services/message-log.js";
 import { pluginState } from "./services/state.js";
 import { registerAllCommands } from "./commands/index.js";
 import { registerOwnerRoutes } from "./routes/owner.js";
 import { registerGroupRoutes } from "./routes/group.js";
+import { registerAdKillerRoutes } from "./routes/ad-killer.js";
 
 @Plugin({
   name: "qq-group-manage",
@@ -36,6 +39,8 @@ export default class QQGroupManagePlugin {
 
     if (!this.dbInitialized && ctx.store) {
       await permService.init(ctx.store);
+      await adKillerService.init(ctx.store);
+      await messageLogService.init(ctx.store);
       this.dbInitialized = true;
     }
 
@@ -65,8 +70,14 @@ export default class QQGroupManagePlugin {
       const groupId = ctx.event.payload.groupId;
       const text = ctx.event.payload.text || "";
       const userId = ctx.event.payload.userId;
+      const messageId = ctx.event.payload.messageId;
 
       if (!groupId) return;
+
+      // Log every group message
+      if (userId && messageId) {
+        await messageLogService.log(groupId, userId, messageId, text);
+      }
 
       // Check if user is blacklisted
       if (userId) {
@@ -103,6 +114,49 @@ export default class QQGroupManagePlugin {
             }
           }
         }
+
+        // Ad killer check
+        const adEnabled = await adKillerService.isEnabled(groupId);
+        if (adEnabled && userId) {
+          const userLevel = await permService.getLevel(userId, groupId);
+          const isWhitelisted = await permService.isWhitelisted(groupId, userId);
+          if (userLevel < PermissionLevel.ADMIN && !isWhitelisted) {
+            const result = await adKillerService.checkMessage(groupId, text);
+            if (result.hit) {
+              // Recall the message
+              if (messageId) {
+                try {
+                  await ctx.sendAction("delete_msg", { message_id: Number(messageId) });
+                } catch (_) {}
+              }
+
+              const punishment = result.punishment || AdPunishment.RECALL;
+
+              if (punishment === AdPunishment.RECALL_MUTE || punishment === AdPunishment.RECALL_KICK) {
+                try {
+                  await ctx.sendAction("set_group_ban", {
+                    group_id: Number(groupId),
+                    user_id: Number(userId),
+                    duration: result.muteDuration || 600,
+                  });
+                } catch (_) {}
+              }
+
+              if (punishment === AdPunishment.RECALL_KICK) {
+                try {
+                  await ctx.sendAction("set_group_kick", {
+                    group_id: Number(groupId),
+                    user_id: Number(userId),
+                    reject_add_request: false,
+                  });
+                } catch (_) {}
+              }
+
+              ctx.stopPropagation();
+              return;
+            }
+          }
+        }
       }
     }
   }
@@ -111,6 +165,7 @@ export default class QQGroupManagePlugin {
     registerAllCommands(ctx, permService);
     registerOwnerRoutes(ctx, permService);
     registerGroupRoutes(ctx, permService);
+    registerAdKillerRoutes(ctx);
 
     ctx.route("GET", "/status", (_req, reply) => {
       reply.send({

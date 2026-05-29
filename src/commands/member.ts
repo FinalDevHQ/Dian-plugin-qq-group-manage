@@ -2,6 +2,7 @@ import type { EventContext } from "@myfinal/plugin-runtime";
 import type { PermissionService } from "../services/permission.js";
 import { PermissionLevel } from "../services/permission.js";
 import { extractMentionedQQ, requirePermission } from "./permission.js";
+import { messageLogService } from "../services/message-log.js";
 
 export function getMemberCommands(permService: PermissionService) {
   return {
@@ -19,7 +20,10 @@ export function getMemberCommands(permService: PermissionService) {
         `禁言 @QQ [分钟] - 禁言\n` +
         `解禁 @QQ - 解除禁言\n` +
         `全体禁言 - 开启全体禁言\n` +
-        `全体解禁 - 关闭全体禁言`
+        `全体解禁 - 关闭全体禁言\n` +
+        `撤回 N - 撤回最近N条消息\n` +
+        `撤回 @QQ - 撤回该用户最近消息\n` +
+        `撤回 @QQ N - 撤回该用户最近N条`
       );
     },
     children: [
@@ -222,6 +226,54 @@ export function getMemberCommands(permService: PermissionService) {
           } else {
             await c.reply(`操作失败: ${result.message || "权限不足"}`);
           }
+        },
+      },
+      {
+        name: "撤回",
+        aliases: ["recall", "批量撤回"],
+        pattern: /^(群管\s+成员\s+撤回|撤回)\s*.+/,
+        description: "撤回消息（支持按数量或按用户）",
+        order: 7,
+        handler: async (c: EventContext) => {
+          const ctx = await requirePermission(c, permService, PermissionLevel.ADMIN);
+          if (!ctx) return;
+          const text = c.event.payload.text || "";
+          const targetQQ = extractMentionedQQ(text);
+
+          // Parse count: "撤回 @QQ 10" or "撤回 10"
+          const countMatch = text.match(/(\d+)\s*(?:条|条消息)?$/);
+          const count = countMatch ? Math.min(parseInt(countMatch[1], 10), 50) : 10;
+
+          let logs;
+          if (targetQQ) {
+            logs = await messageLogService.getRecentByUser(ctx.groupId, targetQQ, count);
+          } else {
+            logs = await messageLogService.getRecent(ctx.groupId, count);
+          }
+
+          if (logs.length === 0) {
+            await c.reply("没有找到可撤回的消息记录");
+            return;
+          }
+
+          let success = 0;
+          let failed = 0;
+          for (const log of logs) {
+            try {
+              const result = await c.sendAction("delete_msg", { message_id: Number(log.msgId) });
+              if (result.ok) {
+                success++;
+                await messageLogService.deleteByMsgId(ctx.groupId, log.msgId);
+              } else {
+                failed++;
+              }
+            } catch {
+              failed++;
+            }
+          }
+
+          const targetText = targetQQ ? `用户 ${targetQQ} 的` : "";
+          await c.reply(`已撤回 ${targetText}${success} 条消息${failed > 0 ? `，${failed} 条失败` : ""}`);
         },
       },
     ],

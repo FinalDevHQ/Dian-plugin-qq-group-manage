@@ -2,8 +2,9 @@ import { useState } from "react"
 import Dashboard from "./pages/Dashboard"
 import OwnerManagement from "./pages/OwnerManagement"
 import GroupManagement from "./pages/GroupManagement"
+import AdKillerManagement from "./pages/AdKillerManagement"
 
-type Page = "dashboard" | "owners" | "groups"
+type Page = "dashboard" | "owners" | "groups" | "ad-killer"
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState<Page>("dashboard")
@@ -14,6 +15,8 @@ export default function App() {
         return <OwnerManagement />
       case "groups":
         return <GroupManagement />
+      case "ad-killer":
+        return <AdKillerManagement />
       default:
         return <Dashboard />
     }
@@ -84,6 +87,23 @@ export default function App() {
               />
             </svg>
             <span>群组管理</span>
+          </button>
+          <button
+            className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium text-left transition-colors ${
+              currentPage === "ad-killer"
+                ? "bg-slate-900 text-white shadow-sm"
+                : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+            }`}
+            onClick={() => setCurrentPage("ad-killer")}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-4 h-4">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+              />
+            </svg>
+            <span>广告杀手</span>
           </button>
         </nav>
         <div className="px-5 py-4 border-t border-slate-100">
