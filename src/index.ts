@@ -158,6 +158,11 @@ export default class QQGroupManagePlugin {
         await messageLogService.log(groupId, userId, messageId, text);
       }
 
+      // Increment message counter for statistics
+      if (userId) {
+        await statisticsService.incrementCounter(groupId, userId);
+      }
+
       // Check if user is blacklisted
       if (userId) {
         const isBlacklisted = await permService.isBlacklisted(groupId, userId);
