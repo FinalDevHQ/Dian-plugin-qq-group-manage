@@ -14,9 +14,9 @@ export function getModeratorCommands(permService: PermissionService) {
       await c.reply(
         `👑 管理员操作\n` +
         `────────────────\n` +
-        `群管 管理员 设置 @QQ / 设管 @QQ - 设置\n` +
-        `群管 管理员 取消 @QQ / 取管 @QQ - 取消\n` +
-        `群管 管理员 同步 / 同步管理权限 - 同步`
+        `设置 @QQ / 设管 @QQ - 设置\n` +
+        `取消 @QQ / 取管 @QQ - 取消\n` +
+        `同步 / 同步管理权限 - 同步`
       );
     },
     children: [
