@@ -9,6 +9,7 @@ interface GroupInfo {
   enabled: boolean
   muted: boolean
   exclusiveMode: boolean
+  replyMode: string
 }
 
 interface GroupSettings {
@@ -16,6 +17,7 @@ interface GroupSettings {
   enabled: boolean
   muted: boolean
   exclusiveMode: boolean
+  replyMode: string
 }
 
 export default function GroupManagement() {
@@ -72,7 +74,7 @@ export default function GroupManagement() {
     }
   }, [selectedGroup, fetchGroupSettings])
 
-  const handleToggle = async (field: "enabled" | "muted" | "exclusiveMode", value: boolean) => {
+  const handleToggle = async (field: string, value: boolean | string) => {
     if (!selectedGroup || !settings) return
     setLoading(true)
     try {
@@ -294,6 +296,22 @@ export default function GroupManagement() {
                         disabled={loading}
                       >
                         {settings?.exclusiveMode ? "关闭" : "开启"}
+                      </Button>
+                    </div>
+
+                    <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3">
+                      <div>
+                        <div className="text-sm font-medium text-slate-900">图片模式</div>
+                        <div className="text-xs text-slate-500">
+                          {settings?.replyMode === "image" ? "回复以图片形式发送" : "回复以文字形式发送"}
+                        </div>
+                      </div>
+                      <Button
+                        variant={settings?.replyMode === "image" ? "default" : "secondary"}
+                        onClick={() => handleToggle("replyMode", settings?.replyMode === "image" ? "text" : "image")}
+                        disabled={loading}
+                      >
+                        {settings?.replyMode === "image" ? "切换文字" : "切换图片"}
                       </Button>
                     </div>
                   </div>

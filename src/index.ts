@@ -11,11 +11,13 @@ import { type Config, loadConfig, saveConfig } from "./config.js";
 import { permService, PermissionLevel } from "./services/permission.js";
 import { adKillerService, AdPunishment } from "./services/ad-killer.js";
 import { messageLogService } from "./services/message-log.js";
+import { templateService } from "./services/template.js";
 import { pluginState } from "./services/state.js";
 import { registerAllCommands } from "./commands/index.js";
 import { registerOwnerRoutes } from "./routes/owner.js";
 import { registerGroupRoutes } from "./routes/group.js";
 import { registerAdKillerRoutes } from "./routes/ad-killer.js";
+import { registerTemplateRoutes } from "./routes/template.js";
 
 @Plugin({
   name: "qq-group-manage",
@@ -41,6 +43,7 @@ export default class QQGroupManagePlugin {
       await permService.init(ctx.store);
       await adKillerService.init(ctx.store);
       await messageLogService.init(ctx.store);
+      await templateService.init(ctx.store);
       this.dbInitialized = true;
     }
 
@@ -166,6 +169,7 @@ export default class QQGroupManagePlugin {
     registerOwnerRoutes(ctx, permService);
     registerGroupRoutes(ctx, permService);
     registerAdKillerRoutes(ctx);
+    registerTemplateRoutes(ctx);
 
     ctx.route("GET", "/status", (_req, reply) => {
       reply.send({

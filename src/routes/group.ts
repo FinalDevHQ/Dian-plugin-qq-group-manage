@@ -74,12 +74,13 @@ export function registerGroupRoutes(ctx: PluginSetupContext, permService: Permis
       return;
     }
 
-    const body = req.body as { enabled?: boolean; muted?: boolean; exclusiveMode?: boolean };
-    const updates: Record<string, boolean> = {};
+    const body = req.body as { enabled?: boolean; muted?: boolean; exclusiveMode?: boolean; replyMode?: string };
+    const updates: Record<string, boolean | string> = {};
 
     if (typeof body.enabled === "boolean") updates.enabled = body.enabled;
     if (typeof body.muted === "boolean") updates.muted = body.muted;
     if (typeof body.exclusiveMode === "boolean") updates.exclusiveMode = body.exclusiveMode;
+    if (typeof body.replyMode === "string" && ["text", "image"].includes(body.replyMode)) updates.replyMode = body.replyMode;
 
     if (Object.keys(updates).length === 0) {
       reply.status(400).send({ ok: false, message: "没有有效的更新字段" });

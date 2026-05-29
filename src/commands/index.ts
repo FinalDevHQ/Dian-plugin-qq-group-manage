@@ -6,7 +6,9 @@ import { getSystemCommands } from "./system.js";
 import { getMemberCommands } from "./member.js";
 import { getBlacklistCommands } from "./blacklist.js";
 import { getAdKillerCommands } from "./ad-killer.js";
+import { getImageModeCommands } from "./image-mode.js";
 import type { EventContext } from "@myfinal/plugin-runtime";
+import { smartReply } from "../services/render.js";
 
 export { extractMentionedQQ, requirePermission } from "./permission.js";
 
@@ -17,6 +19,7 @@ export function registerAllCommands(ctx: PluginSetupContext, permService: Permis
   const blacklistCmd = getBlacklistCommands(permService);
   const systemCmd = getSystemCommands(permService);
   const adKillerCmd = getAdKillerCommands(permService);
+  const imageModeCmd = getImageModeCommands(permService);
 
   ctx.command({
     name: "群管",
@@ -26,7 +29,7 @@ export function registerAllCommands(ctx: PluginSetupContext, permService: Permis
     category: "群组管理",
     order: 5,
     handler: async (c: EventContext) => {
-      await showMainHelp(c);
+      await showMainHelp(c, permService);
     },
     children: [
       {
@@ -36,7 +39,7 @@ export function registerAllCommands(ctx: PluginSetupContext, permService: Permis
         description: "查看群管指令",
         order: 1,
         handler: async (c: EventContext) => {
-          await showMainHelp(c);
+          await showMainHelp(c, permService);
         },
       },
       permissionCmd,
@@ -44,13 +47,15 @@ export function registerAllCommands(ctx: PluginSetupContext, permService: Permis
       memberCmd,
       blacklistCmd,
       adKillerCmd,
+      imageModeCmd,
       systemCmd,
     ],
   });
 }
 
-async function showMainHelp(c: EventContext): Promise<void> {
-  await c.reply(
+async function showMainHelp(c: EventContext, permService: PermissionService): Promise<void> {
+  const groupId = c.event.payload.groupId;
+  const text =
     `👥 群组管理指令\n` +
     `────────────────\n` +
     `群管 权限 - 权限管理\n` +
@@ -59,7 +64,13 @@ async function showMainHelp(c: EventContext): Promise<void> {
     `群管 名单 - 黑白名单\n` +
     `群管 广告 - 广告杀手\n` +
     `群管 系统 - 系统设置\n` +
+    `图片模式 - 图片/文字切换\n` +
     `────────────────\n` +
-    `输入 群管 <分类> 帮助 查看详情`
-  );
+    `输入 群管 <分类> 帮助 查看详情`;
+
+  if (groupId) {
+    await smartReply(c, text, groupId, permService, { templateId: "help_main", templateType: "help" });
+  } else {
+    await c.reply(text);
+  }
 }
