@@ -1,4 +1,4 @@
-const PLUGIN_NAME = "my-plugin"
+const PLUGIN_NAME = "qq-group-manage"
 export const API = `/plugins/${PLUGIN_NAME}/api`
 export const PLUGINS_API = "/plugins"
 

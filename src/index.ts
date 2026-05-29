@@ -1,7 +1,6 @@
 import "reflect-metadata";
 import {
   Plugin,
-  Handler,
   Interceptor,
   type EventContext,
   type PluginSetupContext,
@@ -9,48 +8,86 @@ import {
 
 import { PKG_VERSION } from "./version.js";
 import { type Config, loadConfig, saveConfig } from "./config.js";
+import { permService, PermissionLevel } from "./services/permission.js";
+import { pluginState } from "./services/state.js";
+import { registerAllCommands } from "./commands/index.js";
+import { registerOwnerRoutes } from "./routes/owner.js";
+import { registerGroupRoutes } from "./routes/group.js";
 
 @Plugin({
-  name: "my-plugin",
-  description: "My Dian Plugin",
+  name: "qq-group-manage",
+  description: "QQ群组管理插件",
   version: PKG_VERSION,
-  author: "your-name",
-  icon: "🔌",
+  author: "Dian",
+  icon: "👥",
 })
-export default class MyPlugin {
+export default class QQGroupManagePlugin {
   private readonly startTime = Date.now();
   private config = loadConfig();
+  private dbInitialized = false;
 
-  // ── 拦截器示例（最先执行，可用于日志、鉴权、过滤） ─────────────────────
   @Interceptor(10)
   async logInterceptor(ctx: EventContext): Promise<void> {
     if (ctx.event.type === "message") {
       console.log(
-        `[my-plugin] <${ctx.event.platform}> ${ctx.event.payload.senderName ?? "?"}: ${ctx.event.payload.text ?? ""}`
+        `[qq-group-manage] <${ctx.event.platform}> ${ctx.event.payload.senderName ?? "?"}: ${ctx.event.payload.text ?? ""}`
       );
+    }
+
+    if (!this.dbInitialized && ctx.store) {
+      await permService.init(ctx.store);
+      this.dbInitialized = true;
+    }
+
+    if (!pluginState.available) {
+      pluginState.sendAction = ctx.sendAction;
+    }
+
+    if (ctx.event.type === "message") {
+      const groupId = ctx.event.payload.groupId;
+      const text = ctx.event.payload.text || "";
+
+      if (!groupId) return;
+
+      const isSystemCommand = /^(开机|关机|闭嘴|说话|查群状态|群管\s+系统|开启专属模式|关闭专属模式)/.test(text);
+
+      if (!isSystemCommand) {
+        const isEnabled = await permService.isGroupEnabled(groupId);
+        if (!isEnabled) {
+          ctx.stopPropagation();
+          return;
+        }
+
+        const isMuted = await permService.isGroupMuted(groupId);
+        if (isMuted) {
+          ctx.stopPropagation();
+          return;
+        }
+
+        const isExclusive = await permService.isExclusiveMode(groupId);
+        if (isExclusive) {
+          const qqId = ctx.event.payload.userId;
+          if (qqId) {
+            const level = await permService.getLevel(qqId, groupId);
+            if (level < PermissionLevel.ADMIN) {
+              ctx.stopPropagation();
+              return;
+            }
+          }
+        }
+      }
     }
   }
 
   onSetup(ctx: PluginSetupContext): void {
-    // ── 注册指令 ─────────────────────────────────────────────────────────
-    ctx.command({
-      name: "hello",
-      segment: "hello",
-      aliases: [this.config.command, "hello", "hi"],
-      pattern: () => this.config.command,
-      description: `回复 "${this.config.reply}"`,
-      usage: `${this.config.command}`,
-      examples: [this.config.command],
-      category: "工具",
-      handler: async (c: EventContext) => {
-        await c.reply(this.config.reply);
-      },
-    });
+    registerAllCommands(ctx, permService);
+    registerOwnerRoutes(ctx, permService);
+    registerGroupRoutes(ctx, permService);
 
-    // ── HTTP API 路由 ────────────────────────────────────────────────────
     ctx.route("GET", "/status", (_req, reply) => {
       reply.send({
         startTime: this.startTime,
+        uptime: Date.now() - this.startTime,
         config: this.config,
       });
     });
@@ -67,7 +104,6 @@ export default class MyPlugin {
       reply.send({ ok: true, config: this.config });
     });
 
-    // ── Web UI ───────────────────────────────────────────────────────────
     ctx.ui({ staticDir: "./public", entry: "index.html" });
   }
 }
