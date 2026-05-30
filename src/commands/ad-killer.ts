@@ -235,7 +235,7 @@ export function getAdKillerCommands(permService: PermissionService) {
           for (const [label, kws] of Object.entries(grouped)) {
             msg += `\n[${label}]\n${kws.join(", ")}`;
           }
-          await c.reply(msg);
+          await replyAuto(c, msg, permService);
         },
       },
       // ===== 全局关键词 =====

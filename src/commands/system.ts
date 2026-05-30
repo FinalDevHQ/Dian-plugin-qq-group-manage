@@ -162,7 +162,7 @@ export function getSystemCommands(permService: PermissionService) {
             `────────────────\n` +
             `你的身份: ${levelName}\n` +
             `主人: ${owners.length} | 小主人: ${admins.length} | 超管: ${superAdmins.length}`;
-          await c.reply(status);
+          await replyAuto(c, status, permService);
         },
       },
       {

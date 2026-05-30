@@ -197,7 +197,7 @@ export function getGlobalNotifyCommands(permService: PermissionService) {
       const ctx = await requirePermission(c, permService, PermissionLevel.OWNER);
       if (!ctx) return;
       const config = await notifyService.getGlobalConfig();
-      await c.reply(
+      await replyAuto(c,
         `📢 全局提示配置\n` +
         `────────────────\n` +
         `欢迎语: ${config.welcomeEnabled ? "✅ 开启" : "❌ 关闭"}\n` +
@@ -210,7 +210,8 @@ export function getGlobalNotifyCommands(permService: PermissionService) {
         `全局提示 退群 开启/关闭\n` +
         `全局提示 欢迎 <内容>\n` +
         `全局提示 退群 <内容>\n` +
-        `全局提示 入群禁言 <秒>`
+        `全局提示 入群禁言 <秒>`,
+        permService
       );
     },
     children: [
