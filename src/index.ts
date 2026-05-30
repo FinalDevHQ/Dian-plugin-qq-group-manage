@@ -17,6 +17,7 @@ import { statisticsService } from "./services/statistics.js";
 import { pluginState } from "./services/state.js";
 import { cardService } from "./services/card.js";
 import { systemInfoService } from "./services/system-info.js";
+import { scheduleService } from "./services/schedule.js";
 import { registerAllCommands } from "./commands/index.js";
 import { registerOwnerRoutes } from "./routes/owner.js";
 import { registerGroupRoutes } from "./routes/group.js";
@@ -54,6 +55,7 @@ export default class QQGroupManagePlugin {
       await notifyService.init(ctx.store);
       await statisticsService.init(ctx.store);
       await cardService.init(ctx.store);
+      await scheduleService.init(ctx.store);
       this.dbInitialized = true;
     }
 

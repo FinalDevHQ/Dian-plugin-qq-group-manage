@@ -10,6 +10,7 @@ import { getImageModeCommands } from "./image-mode.js";
 import { getNotifyCommands, getGlobalNotifyCommands } from "./notify.js";
 import { getStatisticsCommands } from "./statistics.js";
 import { getCardCommands } from "./card.js";
+import { getScheduleCommands } from "./schedule.js";
 import type { EventContext } from "@myfinal/plugin-runtime";
 import { smartReply } from "../services/render.js";
 
@@ -27,6 +28,7 @@ export function registerAllCommands(ctx: PluginSetupContext, permService: Permis
   const globalNotifyCmd = getGlobalNotifyCommands(permService);
   const statisticsCmd = getStatisticsCommands(permService);
   const cardCmd = getCardCommands(permService);
+  const scheduleCmd = getScheduleCommands(permService);
 
   ctx.command({
     name: "群管",
@@ -59,6 +61,7 @@ export function registerAllCommands(ctx: PluginSetupContext, permService: Permis
       globalNotifyCmd,
       statisticsCmd,
       cardCmd,
+      scheduleCmd,
       systemCmd,
     ],
   });
@@ -71,8 +74,9 @@ async function showMainHelp(c: EventContext, permService: PermissionService): Pr
     `权限管理  管理员操作\n` +
     `成员管理  黑白名单\n` +
     `广告杀手  群内提示\n` +
-    `发言统计  系统设置\n` +
-    `图片模式  查群状态\n` +
+    `发言统计  定时任务\n` +
+    `名片系统  运行状态\n` +
+    `图片模式  系统设置\n` +
     `===========\n` +
     `直接输入关键词即可使用\n` +
     `例: 成员管理 帮助`;
