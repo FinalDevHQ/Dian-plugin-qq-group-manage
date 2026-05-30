@@ -2,6 +2,7 @@ import type { EventContext } from "@myfinal/plugin-runtime";
 import type { PermissionService } from "../services/permission.js";
 import { PermissionLevel } from "../services/permission.js";
 import { requirePermission } from "./permission.js";
+import { replyAuto } from "../services/render.js";
 
 export function getSystemCommands(permService: PermissionService) {
   return {
@@ -11,7 +12,7 @@ export function getSystemCommands(permService: PermissionService) {
     description: "系统设置",
     order: 30,
     handler: async (c: EventContext) => {
-      await c.reply(
+      await replyAuto(c,
         `⚙️ 系统设置\n` +
         `────────────────\n` +
         `开机 - 启用机器人\n` +
@@ -19,7 +20,8 @@ export function getSystemCommands(permService: PermissionService) {
         `闭嘴 - 停止发言\n` +
         `说话 - 恢复发言\n` +
         `专属模式 开启/关闭 - 专属模式\n` +
-        `状态 / 查群状态 - 查看状态`
+        `状态 / 查群状态 - 查看状态`,
+        permService,
       );
     },
     children: [
@@ -30,7 +32,7 @@ export function getSystemCommands(permService: PermissionService) {
         description: "查看系统帮助",
         order: 0,
         handler: async (c: EventContext) => {
-          await c.reply(
+          await replyAuto(c,
             `⚙️ 系统设置\n` +
             `────────────────\n` +
             `开机 - 启用机器人\n` +
@@ -38,7 +40,8 @@ export function getSystemCommands(permService: PermissionService) {
             `闭嘴 - 停止发言\n` +
             `说话 - 恢复发言\n` +
             `专属模式 开启/关闭 - 专属模式\n` +
-            `状态 / 查群状态 - 查看状态`
+            `状态 / 查群状态 - 查看状态`,
+            permService,
           );
         },
       },

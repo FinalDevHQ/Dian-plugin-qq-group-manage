@@ -2,6 +2,7 @@ import type { EventContext } from "@myfinal/plugin-runtime";
 import type { PermissionService } from "../services/permission.js";
 import { PermissionLevel } from "../services/permission.js";
 import { extractMentionedQQ, requirePermission } from "./permission.js";
+import { replyAuto } from "../services/render.js";
 
 export function getModeratorCommands(permService: PermissionService) {
   return {
@@ -11,12 +12,13 @@ export function getModeratorCommands(permService: PermissionService) {
     description: "QQ群管理员操作",
     order: 20,
     handler: async (c: EventContext) => {
-      await c.reply(
+      await replyAuto(c,
         `👑 管理员操作\n` +
         `────────────────\n` +
         `设置 @QQ / 设管 @QQ - 设置\n` +
         `取消 @QQ / 取管 @QQ - 取消\n` +
-        `同步 / 同步管理权限 - 同步`
+        `同步 / 同步管理权限 - 同步`,
+        permService,
       );
     },
     children: [
@@ -27,12 +29,13 @@ export function getModeratorCommands(permService: PermissionService) {
         description: "查看管理员帮助",
         order: 0,
         handler: async (c: EventContext) => {
-          await c.reply(
+          await replyAuto(c,
             `👑 管理员操作\n` +
             `────────────────\n` +
             `群管 管理员 设置 @QQ / 设管 @QQ - 设置\n` +
             `群管 管理员 取消 @QQ / 取管 @QQ - 取消\n` +
-            `群管 管理员 同步 / 同步管理权限 - 同步`
+            `群管 管理员 同步 / 同步管理权限 - 同步`,
+            permService,
           );
         },
       },

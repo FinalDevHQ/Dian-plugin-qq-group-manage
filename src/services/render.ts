@@ -102,6 +102,25 @@ export async function smartReply(
   await ctx.reply(text);
 }
 
+/**
+ * 通用自动回复：c.reply 的增强版。
+ * 自动检测 groupId，图片模式下把文字渲染成通用卡片图片，否则发文字。
+ * 可以直接替代 c.reply() 用于所有需要美化的回复。
+ */
+export async function replyAuto(
+  ctx: EventContext,
+  text: string,
+  permService: PermissionService,
+  type?: TemplateType,
+): Promise<void> {
+  const groupId = ctx.event.payload?.groupId;
+  if (!groupId) {
+    await ctx.reply(text);
+    return;
+  }
+  await smartReply(ctx, text, groupId, permService, { templateType: type });
+}
+
 export function textToHtml(text: string, type?: TemplateType): string {
   const escaped = text
     .replace(/&/g, "&amp;")

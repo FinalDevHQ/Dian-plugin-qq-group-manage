@@ -2,6 +2,7 @@ import type { EventContext } from "@myfinal/plugin-runtime";
 import type { PermissionService } from "../services/permission.js";
 import { PermissionLevel } from "../services/permission.js";
 import { extractMentionedQQ, requirePermission } from "./permission.js";
+import { replyAuto } from "../services/render.js";
 
 function parseReasonAndQQ(text: string): { reason: string; qqId: string | null } {
   const qqId = extractMentionedQQ(text);
@@ -23,7 +24,7 @@ export function getBlacklistCommands(permService: PermissionService) {
     description: "黑白名单管理",
     order: 28,
     handler: async (c: EventContext) => {
-      await c.reply(
+      await replyAuto(c,
         `📋 黑白名单\n` +
         `────────────────\n` +
         `拉黑 @QQ - 拉黑并踢出\n` +
@@ -34,7 +35,8 @@ export function getBlacklistCommands(permService: PermissionService) {
         `删白 @QQ - 移除白名单\n` +
         `查白 @QQ - 查询白名单\n` +
         `白名单 - 白名单列表\n` +
-        `退群拉黑 开启/关闭 - 退群自动拉黑`
+        `退群拉黑 开启/关闭 - 退群自动拉黑`,
+        permService,
       );
     },
     children: [
@@ -45,7 +47,7 @@ export function getBlacklistCommands(permService: PermissionService) {
         description: "查看名单帮助",
         order: 0,
         handler: async (c: EventContext) => {
-          await c.reply(
+          await replyAuto(c,
             `📋 黑白名单\n` +
             `────────────────\n` +
             `拉黑 @QQ - 拉黑并踢出\n` +
@@ -56,7 +58,8 @@ export function getBlacklistCommands(permService: PermissionService) {
             `删白 @QQ - 移除白名单\n` +
             `查白 @QQ - 查询白名单\n` +
             `白名单 - 白名单列表\n` +
-            `退群拉黑 开启/关闭 - 退群自动拉黑`
+            `退群拉黑 开启/关闭 - 退群自动拉黑`,
+            permService,
           );
         },
       },

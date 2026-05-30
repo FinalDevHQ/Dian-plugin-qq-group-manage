@@ -3,6 +3,7 @@ import type { PermissionService } from "../services/permission.js";
 import { PermissionLevel } from "../services/permission.js";
 import { requirePermission } from "./permission.js";
 import { notifyService } from "../services/notify.js";
+import { replyAuto } from "../services/render.js";
 
 export function getNotifyCommands(permService: PermissionService) {
   return {
@@ -16,7 +17,7 @@ export function getNotifyCommands(permService: PermissionService) {
       if (!ctx) return;
       const config = await notifyService.getEffectiveConfig(ctx.groupId);
       const source = config.custom ? "本群自定义" : "全局默认";
-      await c.reply(
+      await replyAuto(c,
         `📢 群内提示状态 (${source})\n` +
         `────────────────\n` +
         `欢迎语: ${config.welcomeEnabled ? "✅ 开启" : "❌ 关闭"}\n` +
@@ -32,7 +33,8 @@ export function getNotifyCommands(permService: PermissionService) {
         `提示 入群禁言 <秒> - 入群禁言(0=关)\n` +
         `提示 重置 - 回退全局默认\n` +
         `────────────────\n` +
-        `变量: {at} {username} {group_name} {member_count} {bot_name}`
+        `变量: {at} {username} {group_name} {member_count} {bot_name}`,
+        permService,
       );
     },
     children: [
@@ -43,7 +45,7 @@ export function getNotifyCommands(permService: PermissionService) {
         description: "查看提示帮助",
         order: 0,
         handler: async (c: EventContext) => {
-          await c.reply(
+          await replyAuto(c,
             `📢 群内提示帮助\n` +
             `────────────────\n` +
             `提示 开启/关闭 - 欢迎语开关\n` +
@@ -53,7 +55,8 @@ export function getNotifyCommands(permService: PermissionService) {
             `提示 入群禁言 <秒> - 入群禁言(0=关)\n` +
             `提示 重置 - 回退全局默认\n` +
             `────────────────\n` +
-            `变量: {at} {username} {group_name} {member_count} {bot_name}`
+            `变量: {at} {username} {group_name} {member_count} {bot_name}`,
+            permService,
           );
         },
       },

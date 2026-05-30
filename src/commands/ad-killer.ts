@@ -3,6 +3,7 @@ import type { PermissionService } from "../services/permission.js";
 import { PermissionLevel } from "../services/permission.js";
 import { requirePermission } from "./permission.js";
 import { adKillerService, AdPunishment } from "../services/ad-killer.js";
+import { replyAuto } from "../services/render.js";
 
 function punishmentLabel(p: AdPunishment): string {
   switch (p) {
@@ -28,7 +29,7 @@ export function getAdKillerCommands(permService: PermissionService) {
     description: "广告杀手管理",
     order: 29,
     handler: async (c: EventContext) => {
-      await c.reply(
+      await replyAuto(c,
         `🛡️ 广告杀手\n` +
         `────────────────\n` +
         `开启广告杀手 - 开启\n` +
@@ -50,7 +51,8 @@ export function getAdKillerCommands(permService: PermissionService) {
         `全局添加踢人关键词 XX\n` +
         `全局删除关键词 XX\n` +
         `全局清空关键词\n` +
-        `全局关键词列表`
+        `全局关键词列表`,
+        permService,
       );
     },
     children: [
@@ -61,7 +63,7 @@ export function getAdKillerCommands(permService: PermissionService) {
         description: "查看广告杀手帮助",
         order: 0,
         handler: async (c: EventContext) => {
-          await c.reply(
+          await replyAuto(c,
             `🛡️ 广告杀手\n` +
             `────────────────\n` +
             `开启广告杀手 - 开启\n` +
@@ -83,7 +85,8 @@ export function getAdKillerCommands(permService: PermissionService) {
             `全局添加踢人关键词 XX\n` +
             `全局删除关键词 XX\n` +
             `全局清空关键词\n` +
-            `全局关键词列表`
+            `全局关键词列表`,
+            permService,
           );
         },
       },

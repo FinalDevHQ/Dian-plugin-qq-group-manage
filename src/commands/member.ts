@@ -3,6 +3,7 @@ import type { PermissionService } from "../services/permission.js";
 import { PermissionLevel } from "../services/permission.js";
 import { extractMentionedQQ, requirePermission } from "./permission.js";
 import { messageLogService } from "../services/message-log.js";
+import { replyAuto } from "../services/render.js";
 
 export function getMemberCommands(permService: PermissionService) {
   return {
@@ -12,7 +13,7 @@ export function getMemberCommands(permService: PermissionService) {
     description: "成员管理",
     order: 25,
     handler: async (c: EventContext) => {
-      await c.reply(
+      await replyAuto(c,
         `👥 成员管理\n` +
         `────────────────\n` +
         `踢 @QQ - 踢出成员\n` +
@@ -23,7 +24,8 @@ export function getMemberCommands(permService: PermissionService) {
         `全体解禁 - 关闭全体禁言\n` +
         `撤回 N - 撤回最近N条消息\n` +
         `撤回 @QQ - 撤回该用户最近消息\n` +
-        `撤回 @QQ N - 撤回该用户最近N条`
+        `撤回 @QQ N - 撤回该用户最近N条`,
+        permService,
       );
     },
     children: [
@@ -34,7 +36,7 @@ export function getMemberCommands(permService: PermissionService) {
         description: "查看成员管理帮助",
         order: 0,
         handler: async (c: EventContext) => {
-          await c.reply(
+          await replyAuto(c,
             `👥 成员管理\n` +
             `────────────────\n` +
             `群管 成员 踢 @QQ / 踢 @QQ - 踢出\n` +
@@ -42,7 +44,8 @@ export function getMemberCommands(permService: PermissionService) {
             `群管 成员 禁言 @QQ [分钟] / 禁言 - 禁言\n` +
             `群管 成员 解禁 @QQ / 解禁 @QQ - 解禁\n` +
             `群管 成员 全体禁言 / 全体禁言 - 全体禁言\n` +
-            `群管 成员 全体解禁 / 全体解禁 - 全体解禁`
+            `群管 成员 全体解禁 / 全体解禁 - 全体解禁`,
+            permService,
           );
         },
       },

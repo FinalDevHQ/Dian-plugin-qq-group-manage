@@ -1,6 +1,7 @@
 import type { EventContext } from "@myfinal/plugin-runtime";
 import type { PermissionService } from "../services/permission.js";
 import { PermissionLevel } from "../services/permission.js";
+import { replyAuto } from "../services/render.js";
 
 export function extractMentionedQQ(text: string): string | null {
   const match = text.match(/\[CQ:at,qq=(\d+)\]/);
@@ -35,7 +36,7 @@ export function getPermissionCommands(permService: PermissionService) {
     description: "权限管理",
     order: 10,
     handler: async (c: EventContext) => {
-      await c.reply(
+      await replyAuto(c,
         `🔐 权限管理\n` +
         `────────────────\n` +
         `身份 / 我的身份 - 查看权限\n` +
@@ -44,7 +45,8 @@ export function getPermissionCommands(permService: PermissionService) {
         `小主人 列表 / 查小主人 - 列表\n` +
         `超管 添加 @QQ / 加超管 - 添加\n` +
         `超管 删除 @QQ / 删超管 - 删除\n` +
-        `超管 列表 / 查超管 - 列表`
+        `超管 列表 / 查超管 - 列表`,
+        permService,
       );
     },
     children: [
@@ -55,7 +57,7 @@ export function getPermissionCommands(permService: PermissionService) {
         description: "查看权限管理帮助",
         order: 0,
         handler: async (c: EventContext) => {
-          await c.reply(
+          await replyAuto(c,
             `🔐 权限管理\n` +
             `────────────────\n` +
             `身份 / 我的身份 - 查看权限\n` +
@@ -64,7 +66,8 @@ export function getPermissionCommands(permService: PermissionService) {
             `小主人 列表 / 查小主人 - 列表\n` +
             `超管 添加 @QQ / 加超管 - 添加\n` +
             `超管 删除 @QQ / 删超管 - 删除\n` +
-            `超管 列表 / 查超管 - 列表`
+            `超管 列表 / 查超管 - 列表`,
+            permService,
           );
         },
       },
