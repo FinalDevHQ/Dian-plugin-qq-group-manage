@@ -9,6 +9,7 @@ import { getAdKillerCommands } from "./ad-killer.js";
 import { getImageModeCommands } from "./image-mode.js";
 import { getNotifyCommands, getGlobalNotifyCommands } from "./notify.js";
 import { getStatisticsCommands } from "./statistics.js";
+import { getCardCommands } from "./card.js";
 import type { EventContext } from "@myfinal/plugin-runtime";
 import { smartReply } from "../services/render.js";
 
@@ -25,6 +26,7 @@ export function registerAllCommands(ctx: PluginSetupContext, permService: Permis
   const notifyCmd = getNotifyCommands(permService);
   const globalNotifyCmd = getGlobalNotifyCommands(permService);
   const statisticsCmd = getStatisticsCommands(permService);
+  const cardCmd = getCardCommands(permService);
 
   ctx.command({
     name: "群管",
@@ -56,6 +58,7 @@ export function registerAllCommands(ctx: PluginSetupContext, permService: Permis
       notifyCmd,
       globalNotifyCmd,
       statisticsCmd,
+      cardCmd,
       systemCmd,
     ],
   });

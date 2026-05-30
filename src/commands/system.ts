@@ -3,6 +3,7 @@ import type { PermissionService } from "../services/permission.js";
 import { PermissionLevel } from "../services/permission.js";
 import { requirePermission } from "./permission.js";
 import { replyAuto } from "../services/render.js";
+import { systemInfoService } from "../services/system-info.js";
 
 export function getSystemCommands(permService: PermissionService) {
   return {
@@ -162,6 +163,17 @@ export function getSystemCommands(permService: PermissionService) {
             `你的身份: ${levelName}\n` +
             `主人: ${owners.length} | 小主人: ${admins.length} | 超管: ${superAdmins.length}`;
           await c.reply(status);
+        },
+      },
+      {
+        name: "运行状态",
+        aliases: ["运行", "runtime", "status"],
+        pattern: /^(群管\s+系统\s+运行状态|运行状态|运行)$/,
+        description: "查看系统运行状态",
+        order: 11,
+        handler: async (c: EventContext) => {
+          const status = await systemInfoService.getFormattedStatus();
+          await replyAuto(c, status, permService);
         },
       },
     ],

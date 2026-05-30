@@ -15,6 +15,8 @@ import { templateService } from "./services/template.js";
 import { notifyService } from "./services/notify.js";
 import { statisticsService } from "./services/statistics.js";
 import { pluginState } from "./services/state.js";
+import { cardService } from "./services/card.js";
+import { systemInfoService } from "./services/system-info.js";
 import { registerAllCommands } from "./commands/index.js";
 import { registerOwnerRoutes } from "./routes/owner.js";
 import { registerGroupRoutes } from "./routes/group.js";
@@ -22,6 +24,7 @@ import { registerAdKillerRoutes } from "./routes/ad-killer.js";
 import { registerTemplateRoutes } from "./routes/template.js";
 import { registerNotifyRoutes } from "./routes/notify.js";
 import { registerStatisticsRoutes } from "./routes/statistics.js";
+import { registerCardRoutes } from "./routes/card.js";
 
 @Plugin({
   name: "qq-group-manage",
@@ -50,6 +53,7 @@ export default class QQGroupManagePlugin {
       await templateService.init(ctx.store);
       await notifyService.init(ctx.store);
       await statisticsService.init(ctx.store);
+      await cardService.init(ctx.store);
       this.dbInitialized = true;
     }
 
@@ -145,6 +149,67 @@ export default class QQGroupManagePlugin {
       }
     }
 
+    // Card system: rename notification + lock card
+    if (ctx.event.type === "notice" && ctx.event.subtype === "notice.group_card") {
+      const groupId = ctx.event.payload.groupId;
+      const userId = ctx.event.payload.userId;
+      const card = ctx.event.payload.card as string || "";
+
+      if (groupId && userId) {
+        const isCardEnabled = await cardService.isEnabled(groupId);
+        if (!isCardEnabled) return;
+
+        // Lock card: restore original
+        const isLocked = await cardService.isLockCard(groupId);
+        if (isLocked) {
+          const original = await cardService.getOriginalCard(groupId, userId);
+          if (original !== null) {
+            await cardService.setCard(groupId, userId, original);
+            console.log(`[qq-group-manage] Card locked, restored for ${userId} in ${groupId}`);
+            return;
+          }
+        }
+
+        // Rename notification
+        const notifyEnabled = await cardService.isRenameNotify(groupId);
+        if (notifyEnabled) {
+          try {
+            const memberInfo = await ctx.sendAction("get_group_member_info", { group_id: Number(groupId), user_id: Number(userId) });
+            const nickname = (memberInfo.data as Record<string, unknown>)?.nickname as string || String(userId);
+            await ctx.sendAction("send_group_msg", {
+              group_id: Number(groupId),
+              message: `⚠️ ${nickname}(${userId}) 修改了名片为：${card || "（空）"}`,
+            });
+          } catch (_) {}
+        }
+      }
+    }
+
+    // Card system: auto apply prefix on join
+    if (ctx.event.type === "notice" && ctx.event.subtype === "notice.group_increase") {
+      const groupId = ctx.event.payload.groupId;
+      const userId = ctx.event.payload.userId;
+      if (groupId && userId) {
+        const isCardEnabled = await cardService.isEnabled(groupId);
+        if (isCardEnabled) {
+          const prefix = await cardService.getPrefix(groupId);
+          if (prefix) {
+            try {
+              const memberInfo = await ctx.sendAction("get_group_member_info", { group_id: Number(groupId), user_id: Number(userId) });
+              const card = (memberInfo.data as Record<string, unknown>)?.card as string || "";
+              const nickname = (memberInfo.data as Record<string, unknown>)?.nickname as string || "";
+              const currentCard = card || nickname || "";
+              await cardService.saveOriginalCard(groupId, userId, currentCard);
+              await cardService.setCard(groupId, userId, prefix + currentCard);
+              console.log(`[qq-group-manage] Applied prefix "${prefix}" to ${userId} in ${groupId}`);
+            } catch (err) {
+              console.log(`[qq-group-manage] Auto prefix error:`, err);
+            }
+          }
+        }
+      }
+    }
+
     if (ctx.event.type === "message") {
       const groupId = ctx.event.payload.groupId;
       const text = ctx.event.payload.text || "";
@@ -152,6 +217,9 @@ export default class QQGroupManagePlugin {
       const messageId = ctx.event.payload.messageId;
 
       if (!groupId) return;
+
+      // Increment received message counter for system info
+      systemInfoService.incrementReceived();
 
       // Log every group message
       if (userId && messageId) {
@@ -253,6 +321,7 @@ export default class QQGroupManagePlugin {
     registerTemplateRoutes(ctx);
     registerNotifyRoutes(ctx);
     registerStatisticsRoutes(ctx);
+    registerCardRoutes(ctx);
 
     ctx.route("GET", "/status", (_req, reply) => {
       reply.send({
