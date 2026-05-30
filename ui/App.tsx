@@ -7,8 +7,10 @@ import TemplateEditor from "./pages/TemplateEditor"
 import NotifyManagement from "./pages/NotifyManagement"
 import StatisticsManagement from "./pages/StatisticsManagement"
 import CardManagement from "./pages/CardManagement"
+import ScheduleManagement from "./pages/ScheduleManagement"
+import HelpDocumentation from "./pages/HelpDocumentation"
 
-type Page = "dashboard" | "owners" | "groups" | "ad-killer" | "templates" | "notify" | "statistics" | "card"
+type Page = "dashboard" | "owners" | "groups" | "ad-killer" | "templates" | "notify" | "statistics" | "card" | "schedule" | "help"
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState<Page>("dashboard")
@@ -29,6 +31,10 @@ export default function App() {
         return <StatisticsManagement />
       case "card":
         return <CardManagement />
+      case "schedule":
+        return <ScheduleManagement />
+      case "help":
+        return <HelpDocumentation />
       default:
         return <Dashboard />
     }
@@ -43,6 +49,8 @@ export default function App() {
     { page: "notify", label: "群内提示", icon: <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /> },
     { page: "statistics", label: "发言统计", icon: <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /> },
     { page: "card", label: "名片系统", icon: <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /> },
+    { page: "schedule", label: "定时任务", icon: <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /> },
+    { page: "help", label: "使用文档", icon: <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /> },
   ]
 
   return (

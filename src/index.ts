@@ -26,6 +26,7 @@ import { registerTemplateRoutes } from "./routes/template.js";
 import { registerNotifyRoutes } from "./routes/notify.js";
 import { registerStatisticsRoutes } from "./routes/statistics.js";
 import { registerCardRoutes } from "./routes/card.js";
+import { registerScheduleRoutes } from "./routes/schedule.js";
 
 @Plugin({
   name: "qq-group-manage",
@@ -324,6 +325,7 @@ export default class QQGroupManagePlugin {
     registerNotifyRoutes(ctx);
     registerStatisticsRoutes(ctx);
     registerCardRoutes(ctx);
+    registerScheduleRoutes(ctx);
 
     ctx.route("GET", "/status", (_req, reply) => {
       reply.send({
