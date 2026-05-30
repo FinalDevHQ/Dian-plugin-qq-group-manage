@@ -1,7 +1,7 @@
 {
-  "name": "my-plugin",
+  "name": "qq-group-manage",
   "version": "1.0.1",
-  "description": "My Dian Plugin",
+  "description": "QQ群组管理插件 - 权限管理、成员管理、黑白名单、广告杀手、定时任务等",
   "type": "module",
   "scripts": {
     "build": "tsup && vite build --config ui/vite.config.ts",
