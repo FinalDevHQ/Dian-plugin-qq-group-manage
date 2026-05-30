@@ -335,6 +335,11 @@ export default class QQGroupManagePlugin {
       });
     });
 
+    ctx.route("GET", "/system-info", async (_req, reply) => {
+      const info = await systemInfoService.getSystemInfo();
+      reply.send({ code: 0, data: info });
+    });
+
     ctx.route("POST", "/config", (req, reply) => {
       const body = req.body as Partial<Config>;
       if (typeof body.command === "string" && body.command.trim()) {
