@@ -103,6 +103,72 @@ async function sendImageOrText(c: EventContext, groupId: string, html: string, f
   await c.reply(fallbackText);
 }
 
+// Send leaderboard as image when image mode is on, otherwise text
+async function sendLeaderboardAuto(c: EventContext, groupId: string, range: TimeRange, permSvc: PermissionService): Promise<void> {
+  const settings = await statisticsService.getSettings(groupId);
+  const rawEntries = await statisticsService.getLeaderboard(groupId, range);
+  const entries = await resolveNicknames(rawEntries);
+  const groupSettings = await permSvc.getGroupSettings(groupId);
+  const imageMode = (groupSettings.replyMode || "text") === "image";
+
+  if (imageMode) {
+    const stats = await statisticsService.getGroupStats(groupId);
+    const totalMap: Record<TimeRange, number> = {
+      today: stats.totalToday, week: stats.totalWeek, month: stats.totalMonth, year: stats.totalYear, all: stats.totalAll,
+    };
+    const html = renderLeaderboardHtml({
+      title: settings.title,
+      rangeLabel: RANGE_LABELS[range],
+      date: new Date().toLocaleString("zh-CN"),
+      entries,
+      totalMessages: totalMap[range],
+    });
+    await sendImageOrText(c, groupId, html, formatTextLeaderboard(entries, settings.title, RANGE_LABELS[range]));
+  } else {
+    await c.reply(formatTextLeaderboard(entries, settings.title, RANGE_LABELS[range]));
+  }
+}
+
+// Send personal stats as image when image mode is on, otherwise text
+async function sendPersonalStatsAuto(c: EventContext, groupId: string, userId: string, permSvc: PermissionService): Promise<void> {
+  const stats = await statisticsService.getUserStats(groupId, userId);
+  const nickname = await getNickname(userId);
+  const groupSettings = await permSvc.getGroupSettings(groupId);
+  const imageMode = (groupSettings.replyMode || "text") === "image";
+
+  if (imageMode) {
+    const avatar = `https://q1.qlogo.cn/g?b=qq&nk=${userId}&s=640`;
+    const groupRows = await statisticsService.getLeaderboard(groupId, "all", 999);
+    const html = renderPersonalStatsHtml({
+      nickname, avatar, rank: stats.rank, totalRanked: groupRows.length,
+      stats: { today: stats.today, week: stats.week, month: stats.month, year: stats.year, all: stats.all },
+      date: new Date().toLocaleString("zh-CN"),
+    });
+    await sendImageOrText(c, groupId, html, formatPersonalStatsText(nickname, stats, stats.rank));
+  } else {
+    await c.reply(formatPersonalStatsText(nickname, stats, stats.rank));
+  }
+}
+
+// Send group stats as image when image mode is on, otherwise text
+async function sendGroupStatsAuto(c: EventContext, groupId: string, permSvc: PermissionService): Promise<void> {
+  const groupName = await getGroupName(groupId);
+  const stats = await statisticsService.getGroupStats(groupId);
+  const groupSettings = await permSvc.getGroupSettings(groupId);
+  const imageMode = (groupSettings.replyMode || "text") === "image";
+
+  if (imageMode) {
+    const html = renderGroupStatsHtml({
+      groupName,
+      stats: { totalToday: stats.totalToday, totalWeek: stats.totalWeek, totalMonth: stats.totalMonth, totalYear: stats.totalYear, totalAll: stats.totalAll, uniqueToday: stats.uniqueToday, uniqueAll: stats.uniqueAll },
+      date: new Date().toLocaleString("zh-CN"),
+    });
+    await sendImageOrText(c, groupId, html, formatGroupStatsText(groupName, stats));
+  } else {
+    await c.reply(formatGroupStatsText(groupName, stats));
+  }
+}
+
 // ===== Help Text =====
 
 const HELP_TEXT =
@@ -115,10 +181,9 @@ const HELP_TEXT =
   `本月发言 - 本月排行\n` +
   `本年发言 - 本年排行\n` +
   `查发言 @某人 - 查看某人发言\n` +
+  `统计 - 群统计概览\n` +
   `────────────────\n` +
-  `排行 图片 - 今日排行图片\n` +
-  `我的发言图片 - 个人统计图片\n` +
-  `统计图片 - 群统计图片\n` +
+  `开启图片模式后以上命令自动回复图片\n` +
   `排行 设置显示 N - 显示人数`;
 
 // ===== Main Command =====
@@ -146,7 +211,7 @@ export function getStatisticsCommands(permService: PermissionService) {
         handler: async (c: EventContext) => { await c.reply(HELP_TEXT); },
       },
 
-      // ===== 我的发言 (text) =====
+      // ===== 我发 (text, respects image mode) =====
       {
         name: "我的发言",
         aliases: ["my-stats"],
@@ -157,9 +222,7 @@ export function getStatisticsCommands(permService: PermissionService) {
           const groupId = c.event.payload.groupId;
           const userId = c.event.payload.userId;
           if (!groupId || !userId) { await c.reply("无法获取用户信息"); return; }
-          const stats = await statisticsService.getUserStats(groupId, userId);
-          const nickname = await getNickname(userId);
-          await c.reply(formatPersonalStatsText(nickname, stats, stats.rank));
+          await sendPersonalStatsAuto(c, groupId, userId, permService);
         },
       },
 
@@ -187,7 +250,7 @@ export function getStatisticsCommands(permService: PermissionService) {
         },
       },
 
-      // ===== 查发言 @某人 (text) =====
+      // ===== 查发言 @某人 (text, respects image mode) =====
       {
         name: "查发言",
         aliases: ["check-stats"],
@@ -200,9 +263,7 @@ export function getStatisticsCommands(permService: PermissionService) {
           const text = c.event.payload.text || "";
           const targetQQ = extractMentionedQQ(text);
           if (!targetQQ) { await c.reply("格式: 查发言 @某人"); return; }
-          const stats = await statisticsService.getUserStats(groupId, targetQQ);
-          const nickname = await getNickname(targetQQ);
-          await c.reply(formatPersonalStatsText(nickname, stats, stats.rank));
+          await sendPersonalStatsAuto(c, groupId, targetQQ, permService);
         },
       },
 
@@ -242,10 +303,7 @@ export function getStatisticsCommands(permService: PermissionService) {
         handler: async (c: EventContext) => {
           const groupId = c.event.payload.groupId;
           if (!groupId) return;
-          const settings = await statisticsService.getSettings(groupId);
-          const rawEntries = await statisticsService.getLeaderboard(groupId, "today");
-          const entries = await resolveNicknames(rawEntries);
-          await c.reply(formatTextLeaderboard(entries, settings.title, "今日"));
+          await sendLeaderboardAuto(c, groupId, "today", permService);
         },
       },
       {
@@ -271,10 +329,7 @@ export function getStatisticsCommands(permService: PermissionService) {
         handler: async (c: EventContext) => {
           const groupId = c.event.payload.groupId;
           if (!groupId) return;
-          const settings = await statisticsService.getSettings(groupId);
-          const rawEntries = await statisticsService.getLeaderboard(groupId, "week");
-          const entries = await resolveNicknames(rawEntries);
-          await c.reply(formatTextLeaderboard(entries, settings.title, "本周"));
+          await sendLeaderboardAuto(c, groupId, "week", permService);
         },
       },
       {
@@ -300,10 +355,7 @@ export function getStatisticsCommands(permService: PermissionService) {
         handler: async (c: EventContext) => {
           const groupId = c.event.payload.groupId;
           if (!groupId) return;
-          const settings = await statisticsService.getSettings(groupId);
-          const rawEntries = await statisticsService.getLeaderboard(groupId, "month");
-          const entries = await resolveNicknames(rawEntries);
-          await c.reply(formatTextLeaderboard(entries, settings.title, "本月"));
+          await sendLeaderboardAuto(c, groupId, "month", permService);
         },
       },
       {
@@ -329,10 +381,7 @@ export function getStatisticsCommands(permService: PermissionService) {
         handler: async (c: EventContext) => {
           const groupId = c.event.payload.groupId;
           if (!groupId) return;
-          const settings = await statisticsService.getSettings(groupId);
-          const rawEntries = await statisticsService.getLeaderboard(groupId, "year");
-          const entries = await resolveNicknames(rawEntries);
-          await c.reply(formatTextLeaderboard(entries, settings.title, "本年"));
+          await sendLeaderboardAuto(c, groupId, "year", permService);
         },
       },
       {
@@ -348,7 +397,7 @@ export function getStatisticsCommands(permService: PermissionService) {
         },
       },
 
-      // ===== 统计 (text) =====
+      // ===== 统计 (text, respects image mode) =====
       {
         name: "统计",
         aliases: ["stats"],
@@ -358,9 +407,7 @@ export function getStatisticsCommands(permService: PermissionService) {
         handler: async (c: EventContext) => {
           const groupId = c.event.payload.groupId;
           if (!groupId) return;
-          const groupName = await getGroupName(groupId);
-          const stats = await statisticsService.getGroupStats(groupId);
-          await c.reply(formatGroupStatsText(groupName, stats));
+          await sendGroupStatsAuto(c, groupId, permService);
         },
       },
 
@@ -385,7 +432,7 @@ export function getStatisticsCommands(permService: PermissionService) {
         },
       },
 
-      // ===== Legacy: 排行 今日/本周/本月/全部 (text) =====
+      // ===== Legacy: 排行 今日/本周/本月/全部 (text, respects image mode) =====
       {
         name: "今日",
         aliases: ["today"],
@@ -395,10 +442,7 @@ export function getStatisticsCommands(permService: PermissionService) {
         handler: async (c: EventContext) => {
           const groupId = c.event.payload.groupId;
           if (!groupId) return;
-          const settings = await statisticsService.getSettings(groupId);
-          const rawEntries = await statisticsService.getLeaderboard(groupId, "today");
-          const entries = await resolveNicknames(rawEntries);
-          await c.reply(formatTextLeaderboard(entries, settings.title, "今日"));
+          await sendLeaderboardAuto(c, groupId, "today", permService);
         },
       },
       {
@@ -410,10 +454,7 @@ export function getStatisticsCommands(permService: PermissionService) {
         handler: async (c: EventContext) => {
           const groupId = c.event.payload.groupId;
           if (!groupId) return;
-          const settings = await statisticsService.getSettings(groupId);
-          const rawEntries = await statisticsService.getLeaderboard(groupId, "week");
-          const entries = await resolveNicknames(rawEntries);
-          await c.reply(formatTextLeaderboard(entries, settings.title, "本周"));
+          await sendLeaderboardAuto(c, groupId, "week", permService);
         },
       },
       {
@@ -425,10 +466,7 @@ export function getStatisticsCommands(permService: PermissionService) {
         handler: async (c: EventContext) => {
           const groupId = c.event.payload.groupId;
           if (!groupId) return;
-          const settings = await statisticsService.getSettings(groupId);
-          const rawEntries = await statisticsService.getLeaderboard(groupId, "month");
-          const entries = await resolveNicknames(rawEntries);
-          await c.reply(formatTextLeaderboard(entries, settings.title, "本月"));
+          await sendLeaderboardAuto(c, groupId, "month", permService);
         },
       },
       {
@@ -440,18 +478,15 @@ export function getStatisticsCommands(permService: PermissionService) {
         handler: async (c: EventContext) => {
           const groupId = c.event.payload.groupId;
           if (!groupId) return;
-          const settings = await statisticsService.getSettings(groupId);
-          const rawEntries = await statisticsService.getLeaderboard(groupId, "all");
-          const entries = await resolveNicknames(rawEntries);
-          await c.reply(formatTextLeaderboard(entries, settings.title, "全部"));
+          await sendLeaderboardAuto(c, groupId, "all", permService);
         },
       },
 
       // ===== Legacy: 排行 图片 =====
       {
-        name: "图片",
+        name: "逼话榜",
         aliases: ["img", "图"],
-        pattern: /^(发言统计\s+图片|群管\s+排行\s+图片|排行\s+图片|排行\s+图)$/,
+        pattern: /^(发言统计\s+图片|群管\s+排行\s+图片|排行\s+图片|排行\s+图|逼话榜)$/,
         description: "今日排行图片",
         order: 34,
         handler: async (c: EventContext) => {
