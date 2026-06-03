@@ -5,6 +5,7 @@ import { extractMentionedQQ, requirePermission } from "./permission.js";
 import { statisticsService, type TimeRange, type LeaderboardEntry } from "../services/statistics.js";
 import { renderLeaderboardHtml, renderPersonalStatsHtml, renderGroupStatsHtml } from "../services/leaderboard-template.js";
 import { isPuppeteerAvailable, renderHtmlToImage } from "../services/render.js";
+import { templateService } from "../services/template.js";
 import { pluginState } from "../services/state.js";
 
 const RANGE_LABELS: Record<TimeRange, string> = {
@@ -198,7 +199,14 @@ export function getStatisticsCommands(permService: PermissionService) {
     handler: async (c: EventContext) => {
       const groupId = c.event.payload.groupId;
       if (!groupId) { await c.reply(HELP_TEXT); return; }
-      await c.reply(HELP_TEXT);
+      const groupSettings = await permService.getGroupSettings(groupId);
+      const imageMode = (groupSettings.replyMode || "text") === "image";
+      if (imageMode) {
+        const html = templateService.textToHtml(HELP_TEXT, "help");
+        await sendImageOrText(c, groupId, html, HELP_TEXT);
+      } else {
+        await c.reply(HELP_TEXT);
+      }
     },
     children: [
       // ===== Help =====
@@ -208,7 +216,18 @@ export function getStatisticsCommands(permService: PermissionService) {
         pattern: /^(发言统计\s+帮助|群管\s+排行\s+帮助|排行\s+帮助)$/,
         description: "查看发言统计帮助",
         order: 0,
-        handler: async (c: EventContext) => { await c.reply(HELP_TEXT); },
+        handler: async (c: EventContext) => {
+          const groupId = c.event.payload.groupId;
+          if (!groupId) { await c.reply(HELP_TEXT); return; }
+          const groupSettings = await permService.getGroupSettings(groupId);
+          const imageMode = (groupSettings.replyMode || "text") === "image";
+          if (imageMode) {
+            const html = templateService.textToHtml(HELP_TEXT, "help");
+            await sendImageOrText(c, groupId, html, HELP_TEXT);
+          } else {
+            await c.reply(HELP_TEXT);
+          }
+        },
       },
 
       // ===== 我发 (text, respects image mode) =====
