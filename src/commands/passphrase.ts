@@ -13,7 +13,21 @@ export function getPassphraseCommands(permService: PermissionService) {
     pattern: /^(生成口令|口令列表|撤销口令|清空口令|GM-[A-Z2-9]{6})/i,
     description: "口令绑定小主人",
     order: 15,
-    handler: async (c: EventContext) => {},
+    handler: async (c: EventContext) => {
+      await replyAuto(c,
+        `🔑 口令绑定\n` +
+        `────────────────\n` +
+        `生成口令 - 生成绑定口令（主人）\n` +
+        `生成口令 [数量] - 生成多个口令\n` +
+        `生成口令 全局 [数量] - 生成全局口令\n` +
+        `口令列表 - 查看所有口令（主人）\n` +
+        `撤销口令 [ID或口令码] - 撤销口令\n` +
+        `清空口令 - 清空当前群未使用口令\n` +
+        `清空口令 全部 - 清空所有未使用口令（含全局）\n` +
+        `GM-XXXXXX - 使用口令绑定超管`,
+        permService,
+      );
+    },
     children: [
       // ===== 生成口令 (主人) =====
       {
@@ -135,8 +149,18 @@ export function getPassphraseCommands(permService: PermissionService) {
         handler: async (c: EventContext) => {
           const ctx = await requirePermission(c, permService, PermissionLevel.OWNER);
           if (!ctx) return;
-          const count = await permService.clearPassphrases(ctx.groupId);
-          await c.reply(`已清空 ${count} 个未使用的口令`);
+          const text = c.event.payload.text || "";
+
+          // 如果用户指定"全部"，则清空所有口令（包括全局）
+          if (text.includes("全部")) {
+            const countAll = await permService.clearPassphrases("*");
+            const countGroup = await permService.clearPassphrases(ctx.groupId);
+            const totalCount = countAll + countGroup;
+            await c.reply(`已清空 ${totalCount} 个未使用的口令（包括全局 ${countAll} 个，本群 ${countGroup} 个）`);
+          } else {
+            const count = await permService.clearPassphrases(ctx.groupId);
+            await c.reply(`已清空 ${count} 个未使用的口令`);
+          }
         },
       },
 

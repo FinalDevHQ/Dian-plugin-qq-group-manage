@@ -57,6 +57,9 @@ const DEFAULT_SETTINGS: Omit<GroupSettings, "groupId"> = {
 export class PermissionService {
   private db: PluginStore | null = null;
   private initialized = false;
+  private passphraseAttempts: Map<string, { count: number; firstAttempt: number }> = new Map();
+  private readonly MAX_ATTEMPTS = 5;
+  private readonly ATTEMPT_WINDOW_MS = 60000; // 1 minute
 
   async init(store: PluginStore): Promise<void> {
     if (this.initialized) return;
@@ -147,6 +150,8 @@ export class PermissionService {
   }
 
   async addOwner(qqId: string): Promise<void> {
+    const existing = await this.getDb().query(TABLES.OWNERS, { qq_id: qqId });
+    if (existing.length > 0) return;
     await this.getDb().insert(TABLES.OWNERS, { qq_id: qqId });
   }
 
@@ -160,6 +165,8 @@ export class PermissionService {
   }
 
   async addAdmin(qqId: string, nickname?: string): Promise<void> {
+    const existing = await this.getDb().query(TABLES.ADMINS, { qq_id: qqId });
+    if (existing.length > 0) return;
     await this.getDb().insert(TABLES.ADMINS, { qq_id: qqId, nickname: nickname || "" });
   }
 
@@ -406,13 +413,35 @@ export class PermissionService {
   }
 
   async usePassphrase(passphrase: string, groupId: string, userId: string): Promise<{ ok: boolean; reason?: string }> {
+    // 频率限制检查
+    const key = `${userId}:${passphrase.toUpperCase()}`;
+    const now = Date.now();
+    const attempt = this.passphraseAttempts.get(key);
+
+    if (attempt) {
+      if (now - attempt.firstAttempt > this.ATTEMPT_WINDOW_MS) {
+        // 超过时间窗口，重置
+        this.passphraseAttempts.delete(key);
+      } else if (attempt.count >= this.MAX_ATTEMPTS) {
+        // 超过最大尝试次数
+        return { ok: false, reason: "尝试次数过多，请稍后再试" };
+      }
+    }
+
     const db = this.getDb();
     const rows = await db.query(TABLES.ADMIN_PASSPHRASE, { passphrase: passphrase.toUpperCase() });
-    if (rows.length === 0) return { ok: false, reason: "口令不存在" };
+    if (rows.length === 0) {
+      // 记录失败尝试
+      this.recordAttempt(key);
+      return { ok: false, reason: "口令不存在" };
+    }
 
     const row = rows[0];
     if (row.status === "used") return { ok: false, reason: "该口令已被使用" };
     if (row.status === "revoked") return { ok: false, reason: "该口令已失效" };
+
+    // 清除尝试记录（成功了）
+    this.passphraseAttempts.delete(key);
 
     const targetGroupId = row.group_id as string;
     const effectiveGroupId = targetGroupId === "*" ? groupId : targetGroupId;
@@ -428,6 +457,26 @@ export class PermissionService {
 
     await this.addSuperAdmin(effectiveGroupId, userId);
     return { ok: true };
+  }
+
+  private recordAttempt(key: string): void {
+    const now = Date.now();
+    const existing = this.passphraseAttempts.get(key);
+
+    if (existing && now - existing.firstAttempt < this.ATTEMPT_WINDOW_MS) {
+      existing.count++;
+    } else {
+      this.passphraseAttempts.set(key, { count: 1, firstAttempt: now });
+    }
+
+    // 清理过期的记录（防止内存泄漏）
+    if (this.passphraseAttempts.size > 1000) {
+      for (const [k, v] of this.passphraseAttempts.entries()) {
+        if (now - v.firstAttempt > this.ATTEMPT_WINDOW_MS) {
+          this.passphraseAttempts.delete(k);
+        }
+      }
+    }
   }
 
   async getPassphrases(groupId?: string): Promise<Array<{ id: number; groupId: string; passphrase: string; status: string; usedBy: string; usedAt: number; createdAt: number }>> {

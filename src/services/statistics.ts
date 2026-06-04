@@ -64,6 +64,7 @@ export type TimeRange = "today" | "week" | "month" | "year" | "all";
 export class StatisticsService {
   private db: PluginStore | null = null;
   private initialized = false;
+  private counterLocks: Map<string, Promise<void>> = new Map();
 
   async init(store: PluginStore): Promise<void> {
     if (this.initialized) return;
@@ -198,42 +199,61 @@ export class StatisticsService {
 
   async incrementCounter(groupId: string, userId: string): Promise<void> {
     const db = this.getDb();
+    const lockKey = `${groupId}:${userId}`;
 
-    // Ensure counters are reset if needed before incrementing
-    await this.resetIfNeeded(groupId);
+    // 等待之前的锁完成
+    const previousLock = this.counterLocks.get(lockKey);
+    if (previousLock) {
+      await previousLock;
+    }
 
-    const rows = await db.query(TABLE_COUNTER, { group_id: groupId, user_id: userId });
+    // 创建新的锁
+    let resolveLock: () => void;
+    const newLock = new Promise<void>((resolve) => {
+      resolveLock = resolve;
+    });
+    this.counterLocks.set(lockKey, newLock);
 
-    if (rows.length === 0) {
+    try {
+      // Ensure counters are reset if needed before incrementing
+      await this.resetIfNeeded(groupId);
+
+      const rows = await db.query(TABLE_COUNTER, { group_id: groupId, user_id: userId });
+
+      if (rows.length === 0) {
+        await db.insert(TABLE_COUNTER, {
+          group_id: groupId,
+          user_id: userId,
+          username: "",
+          avatar: `https://q1.qlogo.cn/g?b=qq&nk=${userId}&s=640`,
+          today: 1,
+          week: 1,
+          month: 1,
+          year: 1,
+          total: 1,
+          yesterday: 0,
+        });
+        return;
+      }
+
+      const row = rows[0];
+      await db.delete(TABLE_COUNTER, { group_id: groupId, user_id: userId });
       await db.insert(TABLE_COUNTER, {
         group_id: groupId,
         user_id: userId,
-        username: "",
-        avatar: `https://q1.qlogo.cn/g?b=qq&nk=${userId}&s=640`,
-        today: 1,
-        week: 1,
-        month: 1,
-        year: 1,
-        total: 1,
-        yesterday: 0,
+        username: row.username || "",
+        avatar: row.avatar || `https://q1.qlogo.cn/g?b=qq&nk=${userId}&s=640`,
+        today: ((row.today as number) || 0) + 1,
+        week: ((row.week as number) || 0) + 1,
+        month: ((row.month as number) || 0) + 1,
+        year: ((row.year as number) || 0) + 1,
+        total: ((row.total as number) || 0) + 1,
+        yesterday: (row.yesterday as number) || 0,
       });
-      return;
+    } finally {
+      resolveLock!();
+      this.counterLocks.delete(lockKey);
     }
-
-    const row = rows[0];
-    await db.delete(TABLE_COUNTER, { group_id: groupId, user_id: userId });
-    await db.insert(TABLE_COUNTER, {
-      group_id: groupId,
-      user_id: userId,
-      username: row.username || "",
-      avatar: row.avatar || `https://q1.qlogo.cn/g?b=qq&nk=${userId}&s=640`,
-      today: ((row.today as number) || 0) + 1,
-      week: ((row.week as number) || 0) + 1,
-      month: ((row.month as number) || 0) + 1,
-      year: ((row.year as number) || 0) + 1,
-      total: ((row.total as number) || 0) + 1,
-      yesterday: (row.yesterday as number) || 0,
-    });
   }
 
   // ===== Counter: Update Username Cache =====
@@ -261,7 +281,8 @@ export class StatisticsService {
     const allRows = await db.query(TABLE_COUNTER, { group_id: groupId });
     const sortField = range === "all" ? "total" : range;
 
-    const entries = allRows
+    // 先计算所有用户的总量（用于百分比）
+    const allEntries = allRows
       .map((r) => ({
         userId: r.user_id as string,
         nickname: (r.username as string) || "",
@@ -270,10 +291,15 @@ export class StatisticsService {
         percentage: 0,
       }))
       .filter((e) => e.count > 0)
-      .sort((a, b) => b.count - a.count)
-      .slice(0, maxEntries);
+      .sort((a, b) => b.count - a.count);
 
-    const totalCount = entries.reduce((sum, e) => sum + e.count, 0);
+    // 计算全局总数
+    const totalCount = allEntries.reduce((sum, e) => sum + e.count, 0);
+
+    // 取前 N 名显示
+    const entries = allEntries.slice(0, maxEntries);
+
+    // 使用全局总数计算百分比
     for (const e of entries) {
       e.percentage = totalCount > 0 ? Math.round((e.count / totalCount) * 100) : 0;
     }

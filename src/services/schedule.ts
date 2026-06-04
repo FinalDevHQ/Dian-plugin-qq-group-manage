@@ -27,6 +27,8 @@ export class ScheduleService {
   private initialized = false;
   private intervals: Map<string, NodeJS.Timeout> = new Map();
   private checkInterval: NodeJS.Timeout | null = null;
+  private permServiceCallback: ((groupId: string, settings: Record<string, unknown>) => Promise<void>) | null = null;
+  private executingTasks: Set<string> = new Set();
 
   async init(store: PluginStore): Promise<void> {
     if (this.initialized) return;
@@ -46,11 +48,21 @@ export class ScheduleService {
 
     this.initialized = true;
     this.startChecker();
+
+    // 在进程退出时清理定时器
+    process.on('exit', () => {
+      this.stopAll();
+      console.log('[schedule] All timers cleaned up');
+    });
   }
 
   private getDb(): PluginStore {
     if (!this.db) throw new Error("Database not initialized");
     return this.db;
+  }
+
+  setPermServiceCallback(callback: (groupId: string, settings: Record<string, unknown>) => Promise<void>): void {
+    this.permServiceCallback = callback;
   }
 
   async isEnabled(groupId: string): Promise<boolean> {
@@ -231,9 +243,16 @@ export class ScheduleService {
   }
 
   private async executeTask(task: ScheduleTask): Promise<void> {
+    const taskKey = `${task.groupId}:${task.id}:${task.taskType}`;
+    if (this.executingTasks.has(taskKey)) {
+      console.log(`[schedule] Task ${task.id} already executing, skipping`);
+      return;
+    }
+
+    this.executingTasks.add(taskKey);
     try {
       console.log(`[schedule] Executing task type=${task.taskType} for group ${task.groupId}`);
-      
+
       switch (task.taskType) {
         case "boot":
           await this.updateGroupSettings(task.groupId, { enabled: true });
@@ -265,13 +284,17 @@ export class ScheduleService {
       console.log(`[schedule] Task ${task.id} executed successfully`);
     } catch (err) {
       console.log(`[schedule] Execute task error for ${task.groupId}:`, err);
+    } finally {
+      this.executingTasks.delete(taskKey);
     }
   }
 
   private async updateGroupSettings(groupId: string, settings: Record<string, unknown>): Promise<void> {
-    // This would need to call permService, but we don't have access here
-    // We'll need to handle this differently - maybe emit an event or use a callback
-    console.log(`[schedule] Update group settings for ${groupId}:`, settings);
+    if (this.permServiceCallback) {
+      await this.permServiceCallback(groupId, settings);
+    } else {
+      console.error(`[schedule] PermService callback not set for group ${groupId}`);
+    }
   }
 
   private async sendMessage(groupId: string, message: string): Promise<void> {

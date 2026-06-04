@@ -28,6 +28,7 @@ export class SystemInfoService {
   private msgSent = 0;
   private startTime = Date.now();
   private groupCount = 0;
+  private pluginVersion: string = "unknown";
 
   incrementReceived(): void {
     this.msgReceived++;
@@ -39,6 +40,10 @@ export class SystemInfoService {
 
   setGroupCount(count: number): void {
     this.groupCount = count;
+  }
+
+  setPluginVersion(version: string): void {
+    this.pluginVersion = version;
   }
 
   private getCpuUsage(): Promise<number> {
@@ -78,33 +83,67 @@ export class SystemInfoService {
 
   private async getDiskInfoWindows(): Promise<DiskInfo[]> {
     try {
+      // 尝试使用 PowerShell（Windows 10/11 可用）
       const { stdout } = await execAsync(
-        "wmic logicaldisk get caption,size,freespace /format:csv",
+        'powershell -Command "Get-PSDrive -PSProvider FileSystem | Select-Object Name,Used,Free | ConvertTo-Json"',
         { timeout: 5000 }
       );
 
-      const lines = stdout.trim().split("\n").filter((line) => line.trim());
+      const drives = JSON.parse(stdout);
       const disks: DiskInfo[] = [];
 
-      for (let i = 1; i < lines.length; i++) {
-        const parts = lines[i].split(",").map((p) => p.trim());
-        if (parts.length >= 4) {
-          const drive = parts[1];
-          const freeSpace = parseInt(parts[2], 10);
-          const totalSize = parseInt(parts[3], 10);
+      // PowerShell 可能返回单个对象或数组
+      const driveArray = Array.isArray(drives) ? drives : [drives];
 
-          if (drive && !isNaN(freeSpace) && !isNaN(totalSize) && totalSize > 0) {
-            const used = totalSize - freeSpace;
-            const percent = Math.round((used / totalSize) * 100);
-            disks.push({ drive, total: totalSize, used, percent });
+      for (const drive of driveArray) {
+        if (drive.Name && drive.Used != null && drive.Free != null) {
+          const total = drive.Used + drive.Free;
+          if (total > 0) {
+            const percent = Math.round((drive.Used / total) * 100);
+            disks.push({
+              drive: drive.Name + ":",
+              total,
+              used: drive.Used,
+              percent,
+            });
           }
         }
       }
 
       return disks;
     } catch (err) {
-      console.log("[system-info] Windows disk info error:", err);
-      return [];
+      console.log("[system-info] PowerShell disk info failed, trying wmic:", err);
+
+      // 回退到 wmic（旧版 Windows）
+      try {
+        const { stdout } = await execAsync(
+          "wmic logicaldisk get caption,size,freespace /format:csv",
+          { timeout: 5000 }
+        );
+
+        const lines = stdout.trim().split("\n").filter((line) => line.trim());
+        const disks: DiskInfo[] = [];
+
+        for (let i = 1; i < lines.length; i++) {
+          const parts = lines[i].split(",").map((p) => p.trim());
+          if (parts.length >= 4) {
+            const drive = parts[1];
+            const freeSpace = parseInt(parts[2], 10);
+            const totalSize = parseInt(parts[3], 10);
+
+            if (drive && !isNaN(freeSpace) && !isNaN(totalSize) && totalSize > 0) {
+              const used = totalSize - freeSpace;
+              const percent = Math.round((used / totalSize) * 100);
+              disks.push({ drive, total: totalSize, used, percent });
+            }
+          }
+        }
+
+        return disks;
+      } catch (wmicErr) {
+        console.log("[system-info] wmic disk info also failed:", wmicErr);
+        return [];
+      }
     }
   }
 
@@ -195,7 +234,7 @@ export class SystemInfoService {
         pid: process.pid,
       },
       plugin: {
-        version: "1.0.1",
+        version: this.pluginVersion,
         uptime: uptimeSeconds,
       },
       messages: {

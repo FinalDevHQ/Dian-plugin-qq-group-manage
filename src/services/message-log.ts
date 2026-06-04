@@ -14,6 +14,7 @@ const MAX_LOG_PER_GROUP = 500;
 export class MessageLogService {
   private db: PluginStore | null = null;
   private initialized = false;
+  private pendingCleanups: Map<string, NodeJS.Timeout> | null = null;
 
   async init(store: PluginStore): Promise<void> {
     if (this.initialized) return;
@@ -46,14 +47,31 @@ export class MessageLogService {
     });
 
     // Cleanup old entries for this group (keep last MAX_LOG_PER_GROUP)
-    const all = await db.query(TABLE_NAME, { group_id: groupId });
-    if (all.length > MAX_LOG_PER_GROUP) {
-      const toDelete = all
-        .sort((a, b) => (a.timestamp as number) - (b.timestamp as number))
-        .slice(0, all.length - MAX_LOG_PER_GROUP);
-      for (const entry of toDelete) {
-        await db.delete(TABLE_NAME, { group_id: entry.group_id, msg_id: entry.msg_id });
-      }
+    // 使用延迟清理，避免每条消息都查询全部记录
+    if (!this.pendingCleanups) {
+      this.pendingCleanups = new Map();
+    }
+
+    if (!this.pendingCleanups.has(groupId)) {
+      this.pendingCleanups.set(groupId, setTimeout(async () => {
+        try {
+          const all = await db.query(TABLE_NAME, { group_id: groupId });
+          if (all.length > MAX_LOG_PER_GROUP) {
+            const toDelete = all
+              .sort((a, b) => (a.timestamp as number) - (b.timestamp as number))
+              .slice(0, all.length - MAX_LOG_PER_GROUP);
+
+            // 批量删除，减少数据库操作
+            for (const entry of toDelete) {
+              await db.delete(TABLE_NAME, { group_id: entry.group_id, msg_id: entry.msg_id });
+            }
+            console.log(`[message-log] Cleaned ${toDelete.length} old entries from group ${groupId}`);
+          }
+        } catch (err) {
+          console.error(`[message-log] Cleanup error for group ${groupId}:`, err);
+        }
+        this.pendingCleanups?.delete(groupId);
+      }, 1000)); // 延迟1秒执行，合并多次清理
     }
   }
 

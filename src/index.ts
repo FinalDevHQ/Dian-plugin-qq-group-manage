@@ -57,6 +57,13 @@ export default class QQGroupManagePlugin {
       await statisticsService.init(ctx.store);
       await cardService.init(ctx.store);
       await scheduleService.init(ctx.store);
+
+      scheduleService.setPermServiceCallback(async (groupId: string, settings: Record<string, unknown>) => {
+        await permService.updateGroupSettings(groupId, settings);
+      });
+
+      systemInfoService.setPluginVersion(PKG_VERSION);
+
       this.dbInitialized = true;
     }
 
@@ -198,12 +205,25 @@ export default class QQGroupManagePlugin {
           const prefix = await cardService.getPrefix(groupId);
           if (prefix) {
             try {
+              // 先检查是否已有保存的原始名片，避免重复保存导致原始名片被覆盖
+              const existingOriginal = await cardService.getOriginalCard(groupId, userId);
+              if (!existingOriginal) {
+                const memberInfo = await ctx.sendAction("get_group_member_info", { group_id: Number(groupId), user_id: Number(userId) });
+                const card = (memberInfo.data as Record<string, unknown>)?.card as string || "";
+                const nickname = (memberInfo.data as Record<string, unknown>)?.nickname as string || "";
+                const currentCard = card || nickname || "";
+                await cardService.saveOriginalCard(groupId, userId, currentCard);
+              }
+              // 获取当前卡片（可能已带前缀），然后应用前缀
               const memberInfo = await ctx.sendAction("get_group_member_info", { group_id: Number(groupId), user_id: Number(userId) });
               const card = (memberInfo.data as Record<string, unknown>)?.card as string || "";
               const nickname = (memberInfo.data as Record<string, unknown>)?.nickname as string || "";
               const currentCard = card || nickname || "";
-              await cardService.saveOriginalCard(groupId, userId, currentCard);
-              await cardService.setCard(groupId, userId, prefix + currentCard);
+
+              // 如果当前卡片还没带前缀，则加上前缀
+              if (!currentCard.startsWith(prefix)) {
+                await cardService.setCard(groupId, userId, prefix + currentCard);
+              }
               console.log(`[qq-group-manage] Applied prefix "${prefix}" to ${userId} in ${groupId}`);
             } catch (err) {
               console.log(`[qq-group-manage] Auto prefix error:`, err);

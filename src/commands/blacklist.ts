@@ -74,7 +74,7 @@ export function getBlacklistCommands(permService: PermissionService) {
           if (!ctx) return;
           const text = c.event.payload.text || "";
           const { reason, qqId } = parseReasonAndQQ(text);
-          
+
           if (!qqId) {
             await c.reply("请@要拉黑的用户");
             return;
@@ -82,15 +82,26 @@ export function getBlacklistCommands(permService: PermissionService) {
 
           try {
             await permService.addToBlacklist(ctx.groupId, qqId, reason);
-            
-            await c.sendAction("set_group_kick", {
-              group_id: Number(ctx.groupId),
-              user_id: Number(qqId),
-              reject_add_request: true,
-            });
+
+            // 尝试踢人，但不阻止拉黑成功
+            let kickSuccess = false;
+            try {
+              await c.sendAction("set_group_kick", {
+                group_id: Number(ctx.groupId),
+                user_id: Number(qqId),
+                reject_add_request: true,
+              });
+              kickSuccess = true;
+            } catch (kickErr) {
+              console.log(`[blacklist] Kick failed (user may have left):`, kickErr);
+            }
 
             const reasonText = reason ? `，理由: ${reason}` : "";
-            await c.reply(`已拉黑 ${qqId}${reasonText}`);
+            if (kickSuccess) {
+              await c.reply(`已拉黑并踢出 ${qqId}${reasonText}`);
+            } else {
+              await c.reply(`已拉黑 ${qqId}${reasonText}（踢人失败，用户可能已退群）`);
+            }
           } catch (e: unknown) {
             await c.reply(`拉黑失败: ${e instanceof Error ? e.message : String(e)}`);
           }
