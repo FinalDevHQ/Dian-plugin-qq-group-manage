@@ -52,7 +52,7 @@ export function getMemberCommands(permService: PermissionService) {
       {
         name: "踢",
         aliases: ["踢人"],
-        pattern: /^(群管\s+成员\s+踢|踢)(?=\s|@|$)/,
+        pattern: /^(群管\s+成员\s+踢|踢)(?=\s|\[|$)/,
         description: "踢出成员",
         order: 1,
         handler: async (c: EventContext) => {
@@ -87,7 +87,7 @@ export function getMemberCommands(permService: PermissionService) {
       {
         name: "踢黑",
         aliases: ["踢出并拉黑"],
-        pattern: /^(群管\s+成员\s+踢黑|踢黑)(?=\s|@|$)/,
+        pattern: /^(群管\s+成员\s+踢黑|踢黑)(?=\s|\[|$)/,
         description: "踢出成员并拒绝再次加群",
         order: 2,
         handler: async (c: EventContext) => {
@@ -122,7 +122,7 @@ export function getMemberCommands(permService: PermissionService) {
       {
         name: "禁言",
         aliases: ["mute"],
-        pattern: /^(群管\s+成员\s+禁言|禁言)(?=\s|@|$)/,
+        pattern: /^(群管\s+成员\s+禁言|禁言)(?=\s|\[|$)/,
         description: "禁言成员（单位：分钟，默认10分钟）",
         order: 3,
         handler: async (c: EventContext) => {
@@ -161,7 +161,7 @@ export function getMemberCommands(permService: PermissionService) {
       {
         name: "解禁",
         aliases: ["unmute"],
-        pattern: /^(群管\s+成员\s+解禁|解禁)(?=\s|@|$)/,
+        pattern: /^(群管\s+成员\s+解禁|解禁)(?=\s|\[|$)/,
         description: "解除成员禁言",
         order: 4,
         handler: async (c: EventContext) => {
@@ -234,7 +234,7 @@ export function getMemberCommands(permService: PermissionService) {
       {
         name: "撤回",
         aliases: ["recall", "批量撤回"],
-        pattern: /^(群管\s+成员\s+撤回|撤回)(?=\s|@|$)/,
+        pattern: /^(群管\s+成员\s+撤回|撤回)(?=\s|\[|$)/,
         description: "撤回消息（支持按数量或按用户）",
         order: 7,
         handler: async (c: EventContext) => {

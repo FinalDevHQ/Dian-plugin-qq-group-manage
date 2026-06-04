@@ -15,8 +15,10 @@ const TABLES = {
   GROUP_MODERATORS: "qgm_group_moderators",
   GROUP_SETTINGS: "qgm_group_settings",
   REPLY_MODE: "qgm_reply_mode",
+  QUOTE_REPLY: "qgm_quote_reply",
   BLACKLIST: "qgm_blacklist",
   WHITELIST: "qgm_whitelist",
+  ADMIN_PASSPHRASE: "qgm_admin_passphrase",
 };
 
 export interface GroupSettings {
@@ -26,6 +28,7 @@ export interface GroupSettings {
   exclusiveMode: boolean;
   autoBlacklistOnLeave: boolean;
   replyMode: string;
+  quoteReply: boolean;
 }
 
 export interface BlacklistEntry {
@@ -48,6 +51,7 @@ const DEFAULT_SETTINGS: Omit<GroupSettings, "groupId"> = {
   exclusiveMode: false,
   autoBlacklistOnLeave: false,
   replyMode: "text",
+  quoteReply: false,
 };
 
 export class PermissionService {
@@ -73,6 +77,10 @@ export class PermissionService {
       "group_id TEXT NOT NULL",
       "mode TEXT NOT NULL DEFAULT 'text'",
     ]);
+    await this.db.createTable(TABLES.QUOTE_REPLY, [
+      "group_id TEXT NOT NULL",
+      "enabled INTEGER NOT NULL DEFAULT 0",
+    ]);
     await this.db.createTable(TABLES.BLACKLIST, [
       "group_id TEXT NOT NULL",
       "qq_id TEXT NOT NULL",
@@ -83,6 +91,17 @@ export class PermissionService {
       "qq_id TEXT NOT NULL",
       "reason TEXT DEFAULT ''",
     ]);
+    try {
+      await this.db.createTable(TABLES.ADMIN_PASSPHRASE, [
+        "id INTEGER PRIMARY KEY AUTOINCREMENT",
+        "group_id TEXT NOT NULL",
+        "passphrase TEXT NOT NULL",
+        "status TEXT NOT NULL DEFAULT 'active'",
+        "used_by TEXT DEFAULT ''",
+        "used_at INTEGER DEFAULT 0",
+        "created_at INTEGER NOT NULL",
+      ]);
+    } catch {}
 
     this.initialized = true;
   }
@@ -198,8 +217,15 @@ export class PermissionService {
         if (modeRows.length > 0) replyMode = (modeRows[0].mode as string) || "text";
       } catch {}
 
+      // Read quote_reply from dedicated table
+      let quoteReply = false;
+      try {
+        const quoteRows = await db.query(TABLES.QUOTE_REPLY, { group_id: groupId });
+        if (quoteRows.length > 0) quoteReply = Boolean(quoteRows[0].enabled);
+      } catch {}
+
       if (rows.length === 0) {
-        return { groupId, ...DEFAULT_SETTINGS, replyMode };
+        return { groupId, ...DEFAULT_SETTINGS, replyMode, quoteReply };
       }
 
       const row = rows[0];
@@ -210,6 +236,7 @@ export class PermissionService {
         exclusiveMode: Boolean(row.exclusive_mode),
         autoBlacklistOnLeave: Boolean(row.auto_blacklist_on_leave),
         replyMode,
+        quoteReply,
       };
     } catch {
       return { groupId, ...DEFAULT_SETTINGS };
@@ -230,8 +257,19 @@ export class PermissionService {
       }
     }
 
-    // Only update qgm_group_settings if non-replyMode fields are being changed
-    const otherKeys = Object.keys(settings).filter(k => k !== "replyMode");
+    // Handle quoteReply separately in dedicated table
+    if (settings.quoteReply !== undefined) {
+      try {
+        await db.delete(TABLES.QUOTE_REPLY, { group_id: groupId });
+        await db.insert(TABLES.QUOTE_REPLY, { group_id: groupId, enabled: settings.quoteReply ? 1 : 0 });
+        console.log(`[updateGroupSettings] quote_reply saved: ${settings.quoteReply} for group ${groupId}`);
+      } catch (err) {
+        console.log(`[updateGroupSettings] quote_reply save error:`, err);
+      }
+    }
+
+    // Only update qgm_group_settings if non-replyMode/quoteReply fields are being changed
+    const otherKeys = Object.keys(settings).filter(k => k !== "replyMode" && k !== "quoteReply");
     if (otherKeys.length === 0) return;
 
     let currentSettings = { ...DEFAULT_SETTINGS };
@@ -245,6 +283,7 @@ export class PermissionService {
           exclusiveMode: Boolean(row.exclusive_mode),
           autoBlacklistOnLeave: row.auto_blacklist_on_leave !== undefined ? Boolean(row.auto_blacklist_on_leave) : false,
           replyMode: "text",
+          quoteReply: false,
         };
         await db.delete(TABLES.GROUP_SETTINGS, { group_id: groupId });
       }
@@ -329,6 +368,102 @@ export class PermissionService {
       reason: r.reason as string,
       createdAt: 0,
     }));
+  }
+
+  // Passphrase operations
+  private generatePassphrase(): string {
+    const chars = "abcdefghjkmnpqrstuvwxyz23456789";
+    let code = "";
+    for (let i = 0; i < 6; i++) {
+      code += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return `GM-${code}`;
+  }
+
+  async createPassphrases(groupId: string, count: number): Promise<string[]> {
+    const db = this.getDb();
+    const passphrases: string[] = [];
+    for (let i = 0; i < count; i++) {
+      let pp = this.generatePassphrase();
+      let attempts = 0;
+      while (attempts < 10) {
+        const existing = await db.query(TABLES.ADMIN_PASSPHRASE, { passphrase: pp });
+        if (existing.length === 0) break;
+        pp = this.generatePassphrase();
+        attempts++;
+      }
+      await db.insert(TABLES.ADMIN_PASSPHRASE, {
+        group_id: groupId,
+        passphrase: pp,
+        status: "active",
+        used_by: "",
+        used_at: 0,
+        created_at: Date.now(),
+      });
+      passphrases.push(pp);
+    }
+    return passphrases;
+  }
+
+  async usePassphrase(passphrase: string, groupId: string, userId: string): Promise<{ ok: boolean; reason?: string }> {
+    const db = this.getDb();
+    const rows = await db.query(TABLES.ADMIN_PASSPHRASE, { passphrase: passphrase.toUpperCase() });
+    if (rows.length === 0) return { ok: false, reason: "口令不存在" };
+
+    const row = rows[0];
+    if (row.status === "used") return { ok: false, reason: "该口令已被使用" };
+    if (row.status === "revoked") return { ok: false, reason: "该口令已失效" };
+
+    const targetGroupId = row.group_id as string;
+    const effectiveGroupId = targetGroupId === "*" ? groupId : targetGroupId;
+
+    await db.delete(TABLES.ADMIN_PASSPHRASE, { id: row.id });
+    await db.insert(TABLES.ADMIN_PASSPHRASE, {
+      ...row,
+      status: "used",
+      used_by: userId,
+      used_at: Date.now(),
+      group_id: targetGroupId,
+    });
+
+    await this.addSuperAdmin(effectiveGroupId, userId);
+    return { ok: true };
+  }
+
+  async getPassphrases(groupId?: string): Promise<Array<{ id: number; groupId: string; passphrase: string; status: string; usedBy: string; usedAt: number; createdAt: number }>> {
+    const db = this.getDb();
+    const rows = groupId
+      ? await db.query(TABLES.ADMIN_PASSPHRASE, { group_id: groupId })
+      : await db.query(TABLES.ADMIN_PASSPHRASE);
+    return rows.map((r) => ({
+      id: r.id as number,
+      groupId: r.group_id as string,
+      passphrase: r.passphrase as string,
+      status: r.status as string,
+      usedBy: r.used_by as string,
+      usedAt: r.used_at as number,
+      createdAt: r.created_at as number,
+    }));
+  }
+
+  async revokePassphrase(id: number): Promise<boolean> {
+    const db = this.getDb();
+    const rows = await db.query(TABLES.ADMIN_PASSPHRASE, { id });
+    if (rows.length === 0) return false;
+    await db.delete(TABLES.ADMIN_PASSPHRASE, { id });
+    await db.insert(TABLES.ADMIN_PASSPHRASE, { ...rows[0], status: "revoked" });
+    return true;
+  }
+
+  async clearPassphrases(groupId: string): Promise<number> {
+    const db = this.getDb();
+    const rows = await db.query(TABLES.ADMIN_PASSPHRASE, { group_id: groupId, status: "active" });
+    let count = 0;
+    for (const row of rows) {
+      await db.delete(TABLES.ADMIN_PASSPHRASE, { id: row.id });
+      count++;
+    }
+    return count;
   }
 }
 

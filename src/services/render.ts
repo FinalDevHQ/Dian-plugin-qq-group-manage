@@ -53,6 +53,16 @@ export interface SmartReplyOptions {
   vars?: Record<string, string>;
 }
 
+export type MessageSegment = { type: string; data: Record<string, unknown> };
+
+export function buildQuoteSegments(ctx: EventContext, segments: MessageSegment[]): MessageSegment[] {
+  const messageId = ctx.event.payload?.messageId;
+  if (messageId) {
+    return [{ type: "reply", data: { id: String(messageId) } }, ...segments];
+  }
+  return segments;
+}
+
 export async function smartReply(
   ctx: EventContext,
   text: string,
@@ -62,7 +72,8 @@ export async function smartReply(
 ): Promise<void> {
   const settings = await permService.getGroupSettings(groupId);
   const replyMode = settings.replyMode || "text";
-  console.log(`[smartReply] groupId=${groupId} replyMode=${replyMode}`);
+  const quoteReply = settings.quoteReply;
+  console.log(`[smartReply] groupId=${groupId} replyMode=${replyMode} quoteReply=${quoteReply}`);
 
   if (replyMode === "image") {
     const available = await isPuppeteerAvailable();
@@ -89,7 +100,8 @@ export async function smartReply(
       console.log(`[smartReply] render result base64=${base64 ? base64.length : 0} chars`);
       if (base64) {
         try {
-          const message = [{ type: "image", data: { file: `base64://${base64}` } }];
+          const imageSeg: MessageSegment = { type: "image", data: { file: `base64://${base64}` } };
+          const message = quoteReply ? buildQuoteSegments(ctx, [imageSeg]) : [imageSeg];
           await ctx.sendAction("send_group_msg", { group_id: Number(groupId), message });
           return;
         } catch (err) {
@@ -99,7 +111,13 @@ export async function smartReply(
     }
   }
 
-  await ctx.reply(text);
+  if (quoteReply) {
+    const textSeg: MessageSegment = { type: "text", data: { text } };
+    const message = buildQuoteSegments(ctx, [textSeg]);
+    await ctx.sendAction("send_group_msg", { group_id: Number(groupId), message });
+  } else {
+    await ctx.reply(text);
+  }
 }
 
 /**

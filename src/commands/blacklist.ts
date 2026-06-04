@@ -66,7 +66,7 @@ export function getBlacklistCommands(permService: PermissionService) {
       {
         name: "拉黑",
         aliases: ["blacklist"],
-        pattern: /^(群管\s+名单\s+拉黑|拉黑)(?=\s|@|$)/,
+        pattern: /^(群管\s+名单\s+拉黑|拉黑)(?=\\s|\[|$)/,
         description: "拉黑并踢出（支持理由）",
         order: 1,
         handler: async (c: EventContext) => {
@@ -99,7 +99,7 @@ export function getBlacklistCommands(permService: PermissionService) {
       {
         name: "删黑",
         aliases: ["unblacklist"],
-        pattern: /^(群管\s+名单\s+删黑|删黑)(?=\s|@|$)/,
+        pattern: /^(群管\s+名单\s+删黑|删黑)(?=\\s|\[|$)/,
         description: "从黑名单移除",
         order: 2,
         handler: async (c: EventContext) => {
@@ -124,7 +124,7 @@ export function getBlacklistCommands(permService: PermissionService) {
       {
         name: "查黑",
         aliases: ["checkblack"],
-        pattern: /^(群管\s+名单\s+查黑|查黑)(?=\s|@|$)/,
+        pattern: /^(群管\s+名单\s+查黑|查黑)(?=\\s|\[|$)/,
         description: "查询是否在黑名单中",
         order: 3,
         handler: async (c: EventContext) => {
@@ -176,7 +176,7 @@ export function getBlacklistCommands(permService: PermissionService) {
       {
         name: "拉白",
         aliases: ["whitelist"],
-        pattern: /^(群管\s+名单\s+拉白|拉白)(?=\s|@|$)/,
+        pattern: /^(群管\s+名单\s+拉白|拉白)(?=\\s|\[|$)/,
         description: "拉白（免疫广告杀手）",
         order: 5,
         handler: async (c: EventContext) => {
@@ -202,7 +202,7 @@ export function getBlacklistCommands(permService: PermissionService) {
       {
         name: "删白",
         aliases: ["unwhitelist"],
-        pattern: /^(群管\s+名单\s+删白|删白)(?=\s|@|$)/,
+        pattern: /^(群管\s+名单\s+删白|删白)(?=\\s|\[|$)/,
         description: "从白名单移除",
         order: 6,
         handler: async (c: EventContext) => {
@@ -227,7 +227,7 @@ export function getBlacklistCommands(permService: PermissionService) {
       {
         name: "查白",
         aliases: ["checkwhite"],
-        pattern: /^(群管\s+名单\s+查白|查白)(?=\s|@|$)/,
+        pattern: /^(群管\s+名单\s+查白|查白)(?=\\s|\[|$)/,
         description: "查询是否在白名单中",
         order: 7,
         handler: async (c: EventContext) => {

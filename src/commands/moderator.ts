@@ -42,7 +42,7 @@ export function getModeratorCommands(permService: PermissionService) {
       {
         name: "设置",
         aliases: ["设管"],
-        pattern: /^(群管\s+管理员\s+设置|设管)(?=\s|@|$)/,
+        pattern: /^(群管\s+管理员\s+设置|设管)(?=\\s|\[|$)/,
         description: "设置群管理员",
         order: 1,
         handler: async (c: EventContext) => {
@@ -69,7 +69,7 @@ export function getModeratorCommands(permService: PermissionService) {
       {
         name: "取消",
         aliases: ["取管"],
-        pattern: /^(群管\s+管理员\s+取消|取管)(?=\s|@|$)/,
+        pattern: /^(群管\s+管理员\s+取消|取管)(?=\\s|\[|$)/,
         description: "取消群管理员",
         order: 2,
         handler: async (c: EventContext) => {

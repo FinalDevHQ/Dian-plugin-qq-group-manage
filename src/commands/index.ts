@@ -7,6 +7,8 @@ import { getMemberCommands } from "./member.js";
 import { getBlacklistCommands } from "./blacklist.js";
 import { getAdKillerCommands } from "./ad-killer.js";
 import { getImageModeCommands } from "./image-mode.js";
+import { getQuoteReplyCommands } from "./quote-reply.js";
+import { getPassphraseCommands } from "./passphrase.js";
 import { getNotifyCommands, getGlobalNotifyCommands } from "./notify.js";
 import { getStatisticsCommands } from "./statistics.js";
 import { getCardCommands } from "./card.js";
@@ -24,6 +26,8 @@ export function registerAllCommands(ctx: PluginSetupContext, permService: Permis
   const systemCmd = getSystemCommands(permService);
   const adKillerCmd = getAdKillerCommands(permService);
   const imageModeCmd = getImageModeCommands(permService);
+  const quoteReplyCmd = getQuoteReplyCommands(permService);
+  const passphraseCmd = getPassphraseCommands(permService);
   const notifyCmd = getNotifyCommands(permService);
   const globalNotifyCmd = getGlobalNotifyCommands(permService);
   const statisticsCmd = getStatisticsCommands(permService);
@@ -57,6 +61,8 @@ export function registerAllCommands(ctx: PluginSetupContext, permService: Permis
       blacklistCmd,
       adKillerCmd,
       imageModeCmd,
+      quoteReplyCmd,
+      passphraseCmd,
       notifyCmd,
       globalNotifyCmd,
       statisticsCmd,

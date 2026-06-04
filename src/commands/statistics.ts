@@ -5,6 +5,7 @@ import { extractMentionedQQ, requirePermission } from "./permission.js";
 import { statisticsService, type TimeRange, type LeaderboardEntry } from "../services/statistics.js";
 import { renderLeaderboardHtml, renderPersonalStatsHtml, renderGroupStatsHtml } from "../services/leaderboard-template.js";
 import { isPuppeteerAvailable, renderHtmlToImage } from "../services/render.js";
+import { buildQuoteSegments, type MessageSegment } from "../services/render.js";
 import { templateService } from "../services/template.js";
 import { pluginState } from "../services/state.js";
 
@@ -90,18 +91,26 @@ function formatGroupStatsText(groupName: string, stats: { totalToday: number; to
 }
 
 // Send image if Puppeteer available, otherwise text fallback
-async function sendImageOrText(c: EventContext, groupId: string, html: string, fallbackText: string): Promise<void> {
+async function sendImageOrText(c: EventContext, groupId: string, html: string, fallbackText: string, quoteReply = false): Promise<void> {
   const available = await isPuppeteerAvailable();
   if (available) {
     const base64 = await renderHtmlToImage(html);
     if (base64) {
       try {
-        await c.sendAction("send_group_msg", { group_id: Number(groupId), message: [{ type: "image" as const, data: { file: `base64://${base64}` } }] });
+        const imageSeg: MessageSegment = { type: "image", data: { file: `base64://${base64}` } };
+        const message = quoteReply ? buildQuoteSegments(c, [imageSeg]) : [imageSeg];
+        await c.sendAction("send_group_msg", { group_id: Number(groupId), message });
         return;
       } catch (err) { console.log(`[statistics] send image error:`, err); }
     }
   }
-  await c.reply(fallbackText);
+  if (quoteReply) {
+    const textSeg: MessageSegment = { type: "text", data: { text: fallbackText } };
+    const message = buildQuoteSegments(c, [textSeg]);
+    await c.sendAction("send_group_msg", { group_id: Number(groupId), message });
+  } else {
+    await c.reply(fallbackText);
+  }
 }
 
 // Send leaderboard as image when image mode is on, otherwise text
@@ -111,6 +120,8 @@ async function sendLeaderboardAuto(c: EventContext, groupId: string, range: Time
   const entries = await resolveNicknames(rawEntries);
   const groupSettings = await permSvc.getGroupSettings(groupId);
   const imageMode = (groupSettings.replyMode || "text") === "image";
+  const quoteReply = groupSettings.quoteReply;
+  const fallbackText = formatTextLeaderboard(entries, settings.title, RANGE_LABELS[range]);
 
   if (imageMode) {
     const stats = await statisticsService.getGroupStats(groupId);
@@ -124,9 +135,13 @@ async function sendLeaderboardAuto(c: EventContext, groupId: string, range: Time
       entries,
       totalMessages: totalMap[range],
     });
-    await sendImageOrText(c, groupId, html, formatTextLeaderboard(entries, settings.title, RANGE_LABELS[range]));
+    await sendImageOrText(c, groupId, html, fallbackText, quoteReply);
+  } else if (quoteReply) {
+    const textSeg: MessageSegment = { type: "text", data: { text: fallbackText } };
+    const message = buildQuoteSegments(c, [textSeg]);
+    await c.sendAction("send_group_msg", { group_id: Number(groupId), message });
   } else {
-    await c.reply(formatTextLeaderboard(entries, settings.title, RANGE_LABELS[range]));
+    await c.reply(fallbackText);
   }
 }
 
@@ -136,6 +151,8 @@ async function sendPersonalStatsAuto(c: EventContext, groupId: string, userId: s
   const nickname = await getNickname(userId);
   const groupSettings = await permSvc.getGroupSettings(groupId);
   const imageMode = (groupSettings.replyMode || "text") === "image";
+  const quoteReply = groupSettings.quoteReply;
+  const fallbackText = formatPersonalStatsText(nickname, stats, stats.rank);
 
   if (imageMode) {
     const avatar = `https://q1.qlogo.cn/g?b=qq&nk=${userId}&s=640`;
@@ -145,9 +162,13 @@ async function sendPersonalStatsAuto(c: EventContext, groupId: string, userId: s
       stats: { today: stats.today, week: stats.week, month: stats.month, year: stats.year, all: stats.all },
       date: new Date().toLocaleString("zh-CN"),
     });
-    await sendImageOrText(c, groupId, html, formatPersonalStatsText(nickname, stats, stats.rank));
+    await sendImageOrText(c, groupId, html, fallbackText, quoteReply);
+  } else if (quoteReply) {
+    const textSeg: MessageSegment = { type: "text", data: { text: fallbackText } };
+    const message = buildQuoteSegments(c, [textSeg]);
+    await c.sendAction("send_group_msg", { group_id: Number(groupId), message });
   } else {
-    await c.reply(formatPersonalStatsText(nickname, stats, stats.rank));
+    await c.reply(fallbackText);
   }
 }
 
@@ -157,6 +178,8 @@ async function sendGroupStatsAuto(c: EventContext, groupId: string, permSvc: Per
   const stats = await statisticsService.getGroupStats(groupId);
   const groupSettings = await permSvc.getGroupSettings(groupId);
   const imageMode = (groupSettings.replyMode || "text") === "image";
+  const quoteReply = groupSettings.quoteReply;
+  const fallbackText = formatGroupStatsText(groupName, stats);
 
   if (imageMode) {
     const html = renderGroupStatsHtml({
@@ -164,9 +187,13 @@ async function sendGroupStatsAuto(c: EventContext, groupId: string, permSvc: Per
       stats: { totalToday: stats.totalToday, totalWeek: stats.totalWeek, totalMonth: stats.totalMonth, totalYear: stats.totalYear, totalAll: stats.totalAll, uniqueToday: stats.uniqueToday, uniqueAll: stats.uniqueAll },
       date: new Date().toLocaleString("zh-CN"),
     });
-    await sendImageOrText(c, groupId, html, formatGroupStatsText(groupName, stats));
+    await sendImageOrText(c, groupId, html, fallbackText, quoteReply);
+  } else if (quoteReply) {
+    const textSeg: MessageSegment = { type: "text", data: { text: fallbackText } };
+    const message = buildQuoteSegments(c, [textSeg]);
+    await c.sendAction("send_group_msg", { group_id: Number(groupId), message });
   } else {
-    await c.reply(formatGroupStatsText(groupName, stats));
+    await c.reply(fallbackText);
   }
 }
 
@@ -201,9 +228,14 @@ export function getStatisticsCommands(permService: PermissionService) {
       if (!groupId) { await c.reply(HELP_TEXT); return; }
       const groupSettings = await permService.getGroupSettings(groupId);
       const imageMode = (groupSettings.replyMode || "text") === "image";
+      const quoteReply = groupSettings.quoteReply;
       if (imageMode) {
         const html = templateService.textToHtml(HELP_TEXT, "help");
-        await sendImageOrText(c, groupId, html, HELP_TEXT);
+        await sendImageOrText(c, groupId, html, HELP_TEXT, quoteReply);
+      } else if (quoteReply) {
+        const textSeg: MessageSegment = { type: "text", data: { text: HELP_TEXT } };
+        const message = buildQuoteSegments(c, [textSeg]);
+        await c.sendAction("send_group_msg", { group_id: Number(groupId), message });
       } else {
         await c.reply(HELP_TEXT);
       }
@@ -221,9 +253,14 @@ export function getStatisticsCommands(permService: PermissionService) {
           if (!groupId) { await c.reply(HELP_TEXT); return; }
           const groupSettings = await permService.getGroupSettings(groupId);
           const imageMode = (groupSettings.replyMode || "text") === "image";
+          const quoteReply = groupSettings.quoteReply;
           if (imageMode) {
             const html = templateService.textToHtml(HELP_TEXT, "help");
-            await sendImageOrText(c, groupId, html, HELP_TEXT);
+            await sendImageOrText(c, groupId, html, HELP_TEXT, quoteReply);
+          } else if (quoteReply) {
+            const textSeg: MessageSegment = { type: "text", data: { text: HELP_TEXT } };
+            const message = buildQuoteSegments(c, [textSeg]);
+            await c.sendAction("send_group_msg", { group_id: Number(groupId), message });
           } else {
             await c.reply(HELP_TEXT);
           }

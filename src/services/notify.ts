@@ -26,9 +26,9 @@ const TABLES = {
 const GLOBAL_KEY = "default";
 
 const DEFAULT_CONFIG: Omit<NotifyConfig, "groupId" | "custom"> = {
-  welcomeEnabled: true,
+  welcomeEnabled: false,
   welcomeMsg: "{at} 欢迎加入 {group_name}！当前群成员 {member_count} 人",
-  leaveEnabled: true,
+  leaveEnabled: false,
   leaveMsg: "{username} 离开了我们，当前剩余 {member_count} 人",
   muteOnJoin: false,
   muteDuration: 0,
@@ -44,9 +44,9 @@ export class NotifyService {
 
     await this.db.createTable(TABLES.GLOBAL, [
       "key TEXT NOT NULL",
-      "welcome_enabled INTEGER NOT NULL DEFAULT 1",
+      "welcome_enabled INTEGER NOT NULL DEFAULT 0",
       "welcome_msg TEXT NOT NULL DEFAULT ''",
-      "leave_enabled INTEGER NOT NULL DEFAULT 1",
+      "leave_enabled INTEGER NOT NULL DEFAULT 0",
       "leave_msg TEXT NOT NULL DEFAULT ''",
       "mute_on_join INTEGER NOT NULL DEFAULT 0",
       "mute_duration INTEGER NOT NULL DEFAULT 0",
@@ -54,9 +54,9 @@ export class NotifyService {
 
     await this.db.createTable(TABLES.GROUP, [
       "group_id TEXT NOT NULL",
-      "welcome_enabled INTEGER NOT NULL DEFAULT 1",
+      "welcome_enabled INTEGER NOT NULL DEFAULT 0",
       "welcome_msg TEXT NOT NULL DEFAULT ''",
-      "leave_enabled INTEGER NOT NULL DEFAULT 1",
+      "leave_enabled INTEGER NOT NULL DEFAULT 0",
       "leave_msg TEXT NOT NULL DEFAULT ''",
       "mute_on_join INTEGER NOT NULL DEFAULT 0",
       "mute_duration INTEGER NOT NULL DEFAULT 0",

@@ -98,7 +98,7 @@ export function getPermissionCommands(permService: PermissionService) {
           {
             name: "添加",
             aliases: ["加小主人"],
-            pattern: /^(群管\s+权限\s+小主人\s+添加|加小主人)(?=\s|@|$)/,
+            pattern: /^(群管\s+权限\s+小主人\s+添加|加小主人)(?=\\s|\[|$)/,
             description: "添加小主人",
             order: 1,
             handler: async (c: EventContext) => {
@@ -121,7 +121,7 @@ export function getPermissionCommands(permService: PermissionService) {
           {
             name: "删除",
             aliases: ["删小主人"],
-            pattern: /^(群管\s+权限\s+小主人\s+删除|删小主人)(?=\s|@|$)/,
+            pattern: /^(群管\s+权限\s+小主人\s+删除|删小主人)(?=\\s|\[|$)/,
             description: "删除小主人",
             order: 2,
             handler: async (c: EventContext) => {
@@ -170,7 +170,7 @@ export function getPermissionCommands(permService: PermissionService) {
           {
             name: "添加",
             aliases: ["加超管"],
-            pattern: /^(群管\s+权限\s+超管\s+添加|加超管)(?=\s|@|$)/,
+            pattern: /^(群管\s+权限\s+超管\s+添加|加超管)(?=\\s|\[|$)/,
             description: "添加本群超管",
             order: 1,
             handler: async (c: EventContext) => {
@@ -193,7 +193,7 @@ export function getPermissionCommands(permService: PermissionService) {
           {
             name: "删除",
             aliases: ["删超管"],
-            pattern: /^(群管\s+权限\s+超管\s+删除|删超管)(?=\s|@|$)/,
+            pattern: /^(群管\s+权限\s+超管\s+删除|删超管)(?=\\s|\[|$)/,
             description: "删除本群超管",
             order: 2,
             handler: async (c: EventContext) => {
